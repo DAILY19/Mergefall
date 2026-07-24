@@ -1,7 +1,13 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
-[ext_resource type="Script" path="res://scripts/managers/main.gd" id="1_3m0hq"]
-[ext_resource type="Resource" path="res://resources/config/default_game_config.tres" id="7_qr3cw"]
+[ext_resource type="Script" path="res://scripts/managers/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/board_view.gd" id="2_board"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
+[ext_resource type="Resource" path="res://resources/config/default_game_config.tres" id="4_config"]
+[ext_resource type="FontFile" path="res://assets/fonts/Neatpixels Standard/neatpixels-standard.ttf" id="5_body_font"]
+[ext_resource type="FontFile" path="res://assets/fonts/Neatpixels Minimal/NeatpixelsMinimal.ttf" id="6_value_font"]
+[ext_resource type="Texture2D" path="res://assets/ui/Free Inventory/Inventory_background.png" id="7_panel"]
+[ext_resource type="Texture2D" path="res://assets/ui/Free Inventory/Inventory_Slot.png" id="8_slot"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -11,105 +17,26 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
-script = ExtResource("1_3m0hq")
-config = ExtResource("7_qr3cw")
+script = ExtResource("1_main")
+config = ExtResource("4_config")
 
-[node name="Header" type="VBoxContainer" parent="."]
+[node name="BoardView" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 24.0
-offset_top = 20.0
-offset_right = -24.0
-offset_bottom = 120.0
-theme_override_constants/separation = 8
-
-[node name="TitleLabel" type="Label" parent="Header"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 30
-text = "Dumpster Delights"
-horizontal_alignment = 1
-
-[node name="SubtitleLabel" type="Label" parent="Header"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Place weird snack pieces, connect numbers, and merge them."
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="StatsRow" type="HBoxContainer" parent="Header"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="ScoreLabel" type="Label" parent="Header/StatsRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Score: 0"
-
-[node name="BestLabel" type="Label" parent="Header/StatsRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Best: 0"
-
-[node name="MovesLabel" type="Label" parent="Header/StatsRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Moves: 0"
-
-[node name="TargetLabel" type="Label" parent="Header"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Turn-based placement + 2048-style merging"
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="ToastLabel" type="Label" parent="."]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -140.0
-offset_top = -24.0
-offset_right = 140.0
-offset_bottom = 24.0
-theme_override_font_sizes/font_size = 26
-text = "Combo!"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Footer" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -164.0
-offset_right = -24.0
-offset_bottom = -24.0
-theme_override_constants/separation = 10
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_board")
+top_padding = 184.0
+bottom_padding = 188.0
+value_font = ExtResource("6_value_font")
 
-[node name="HintLabel" type="Label" parent="Footer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Arrows move, Q/E rotate, Enter places."
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="ButtonsRow" type="HBoxContainer" parent="Footer"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="UndoButton" type="Button" parent="Footer/ButtonsRow"]
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Undo"
-
-[node name="RestartButton" type="Button" parent="Footer/ButtonsRow"]
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Cook Another Round"
+[node name="GameHUD" parent="." instance=ExtResource("3_hud")]
+unique_name_in_owner = true
+title_font = ExtResource("5_body_font")
+body_font = ExtResource("5_body_font")
+header_panel_texture = ExtResource("7_panel")
+footer_panel_texture = ExtResource("7_panel")
+stat_chip_texture = ExtResource("8_slot")

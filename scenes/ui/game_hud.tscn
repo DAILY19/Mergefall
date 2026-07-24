@@ -1,0 +1,148 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/game_hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/ui/piece_preview_strip.gd" id="2_preview"]
+
+[node name="GameHUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_hud")
+
+[node name="HeaderPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = 176.0
+
+[node name="HeaderBox" type="VBoxContainer" parent="HeaderPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="HeaderPanel/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Dumpster Delights"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="HeaderPanel/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Place weird snack pieces, connect numbers, and merge them."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="StatsRow" type="HBoxContainer" parent="HeaderPanel/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="HeaderPanel/HeaderBox/StatsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Score: 0"
+
+[node name="BestLabel" type="Label" parent="HeaderPanel/HeaderBox/StatsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Best: 0"
+
+[node name="MovesLabel" type="Label" parent="HeaderPanel/HeaderBox/StatsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Turns: 0"
+
+[node name="TargetLabel" type="Label" parent="HeaderPanel/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Turn-based placement + 2048-style merging"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="PreviewStrip" type="Control" parent="HeaderPanel/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 132)
+script = ExtResource("2_preview")
+title_text = "Next Bites"
+
+[node name="ToastLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -140.0
+offset_top = -24.0
+offset_right = 140.0
+offset_bottom = 24.0
+text = "Combo!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FooterPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -164.0
+offset_right = -24.0
+offset_bottom = -24.0
+
+[node name="FooterBox" type="VBoxContainer" parent="FooterPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="FooterPanel/FooterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Arrows move, Q/E rotate, Enter places."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ButtonsRow" type="HBoxContainer" parent="FooterPanel/FooterBox"]
+layout_mode = 2
+
+[node name="RotateLeftButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Rotate L"
+
+[node name="PlaceButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Place"
+
+[node name="RotateRightButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Rotate R"
+
+[node name="UndoButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Undo"
+
+[node name="RestartButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Cook Another Round"
