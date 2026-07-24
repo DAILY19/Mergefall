@@ -1,0 +1,115 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/managers/main.gd" id="1_3m0hq"]
+[ext_resource type="Resource" path="res://resources/config/default_game_config.tres" id="7_qr3cw"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_3m0hq")
+config = ExtResource("7_qr3cw")
+
+[node name="Header" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = 120.0
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Dumpster Delights"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Place weird snack pieces, connect numbers, and merge them."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="StatsRow" type="HBoxContainer" parent="Header"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="Header/StatsRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Score: 0"
+
+[node name="BestLabel" type="Label" parent="Header/StatsRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Best: 0"
+
+[node name="MovesLabel" type="Label" parent="Header/StatsRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Moves: 0"
+
+[node name="TargetLabel" type="Label" parent="Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Turn-based placement + 2048-style merging"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ToastLabel" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -140.0
+offset_top = -24.0
+offset_right = 140.0
+offset_bottom = 24.0
+theme_override_font_sizes/font_size = 26
+text = "Combo!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Footer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -164.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 10
+
+[node name="HintLabel" type="Label" parent="Footer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Arrows move, Q/E rotate, Enter places."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ButtonsRow" type="HBoxContainer" parent="Footer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="UndoButton" type="Button" parent="Footer/ButtonsRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Undo"
+
+[node name="RestartButton" type="Button" parent="Footer/ButtonsRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Cook Another Round"
