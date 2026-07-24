@@ -1,0 +1,10 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+/tools/local-godot/
+docs/*.wasm
+docs/*.pck
+docs/*.js
+docs/*.audio.worklet.js
+docs/*.png
+docs/*.svg

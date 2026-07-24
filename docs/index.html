@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dumpster Delights</title>
+  <meta name="description" content="Dumpster Delights is a goofy portrait-mode mobile merge puzzler built with Godot.">
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --paper: #fffaf0;
+      --ink: #2f2419;
+      --muted: #75614b;
+      --accent: #ef8354;
+      --accent-2: #2a9d8f;
+      --shadow: rgba(47, 36, 25, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.85), transparent 38%),
+        linear-gradient(180deg, #f6d365 0%, #fda085 45%, #f4efe4 100%);
+      min-height: 100vh;
+    }
+
+    main {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+    }
+
+    .hero {
+      background: var(--paper);
+      border-radius: 28px;
+      box-shadow: 0 20px 60px var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-top {
+      padding: 28px 24px 12px;
+      background:
+        linear-gradient(135deg, rgba(239, 131, 84, 0.18), rgba(42, 157, 143, 0.18)),
+        var(--paper);
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 7vw, 4.8rem);
+      line-height: 0.95;
+    }
+
+    .tagline {
+      margin: 16px 0 0;
+      max-width: 28rem;
+      font-size: 1.05rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .hero-grid {
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .panel {
+      background: rgba(255, 250, 240, 0.92);
+      border: 2px dashed rgba(47, 36, 25, 0.14);
+      border-radius: 22px;
+      padding: 18px;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+    }
+
+    .panel p,
+    .panel li {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin: 0;
+    }
+
+    .mock-phone {
+      aspect-ratio: 9 / 16;
+      width: min(100%, 320px);
+      margin: 0 auto;
+      border-radius: 30px;
+      padding: 16px;
+      background: #2f2419;
+      box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.08);
+    }
+
+    .screen {
+      height: 100%;
+      border-radius: 22px;
+      padding: 14px;
+      background: #f4efe4;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+    }
+
+    .screen-head {
+      text-align: center;
+    }
+
+    .screen-head strong {
+      display: block;
+      font-size: 1.2rem;
+    }
+
+    .screen-head span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .board {
+      background: #d8c3a5;
+      border-radius: 20px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .tile {
+      aspect-ratio: 1;
+      border-radius: 16px;
+      padding: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 0.82rem;
+      text-align: center;
+      font-weight: 700;
+      color: #4a3414;
+      background: #efe0cc;
+    }
+
+    .tile.hot { background: #ffbf69; }
+    .tile.rat { background: #ff8c69; color: #4f1c14; }
+    .tile.blob { background: #f25f5c; color: #fff7e6; }
+    .tile.dragon { background: #2a9d8f; color: #f6fffb; }
+
+    .status {
+      text-align: center;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .note {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    code {
+      font-family: "Courier New", monospace;
+      background: rgba(47, 36, 25, 0.08);
+      padding: 0.1rem 0.35rem;
+      border-radius: 6px;
+    }
+
+    @media (min-width: 760px) {
+      .hero-grid {
+        grid-template-columns: 1.1fr 0.9fr;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="hero-top">
+        <p class="eyebrow">Goofy mobile puzzle game</p>
+        <h1>Dumpster Delights</h1>
+        <p class="tagline">Swipe cursed leftovers together until the whole menu collapses into one glorious Snackularity.</p>
+      </div>
+      <div class="hero-grid">
+        <div class="panel">
+          <h2>What it is</h2>
+          <p>A portrait-mode merge puzzler inspired by 2048, tuned for one-thumb phone play and built in Godot for web export.</p>
+          <h2>Current status</h2>
+          <ul>
+            <li>The Godot project and GitHub Pages workflow are in this repository.</li>
+            <li>This page is a temporary launch screen until the exported Godot web build replaces <code>docs/index.html</code>.</li>
+            <li>The game target is to merge all the way up to <strong>Snackularity</strong>.</li>
+          </ul>
+        </div>
+        <div class="mock-phone" aria-hidden="true">
+          <div class="screen">
+            <div class="screen-head">
+              <strong>Dumpster Delights</strong>
+              <span>Score 256 | Best 1024</span>
+            </div>
+            <div class="board">
+              <div class="tile">Crumb</div>
+              <div class="tile hot">Fries</div>
+              <div class="tile rat">Pizza Rat</div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile blob">Nacho Blob</div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile dragon">Dumpster Dragon</div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+              <div class="tile"></div>
+            </div>
+            <div class="status">Swipe up, down, left, or right to merge.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <p class="note">When a real Godot web export is created to <code>docs/index.html</code>, it will replace this temporary page automatically.</p>
+  </main>
+</body>
+</html>
