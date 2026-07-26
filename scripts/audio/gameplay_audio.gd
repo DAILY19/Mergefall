@@ -4,13 +4,13 @@ extends Node
 # A deliberately small palette from the local Universal Sound Effects packs.
 # Movement shares one sound with a slight directional pitch shift so repeated
 # play stays cohesive instead of becoming a wall of unrelated cues.
-const MOVE_STREAM := preload("res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_6.wav")
-const ROTATE_STREAM := preload("res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_8.wav")
-const DROP_STREAM := preload("res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Menus/UI_Swish_2.wav")
-const LAND_STREAM := preload("res://assets/audio/sfx/Game Sound Effects 2 - Universal Sound Effects/WAV/GS2_Land.wav")
-const BLOCKED_STREAM := preload("res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Disable.wav")
-const MERGE_STREAM := preload("res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Puzzle Game/UI_Puzzle_Game_6.wav")
-const GAME_OVER_STREAM := preload("res://assets/audio/sfx/User Interface Pack 2 - Universal Sound Effects/WAV/UI2_Decline_2.wav")
+const MOVE_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_6.wav"
+const ROTATE_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_8.wav"
+const DROP_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Menus/UI_Swish_2.wav"
+const LAND_STREAM_PATH := "res://assets/audio/sfx/Game Sound Effects 2 - Universal Sound Effects/WAV/GS2_Land.wav"
+const BLOCKED_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Disable.wav"
+const MERGE_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Puzzle Game/UI_Puzzle_Game_6.wav"
+const GAME_OVER_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 2 - Universal Sound Effects/WAV/UI2_Decline_2.wav"
 
 const BLOCKED_COOLDOWN_MSEC := 140
 
@@ -34,22 +34,22 @@ func _ready() -> void:
 
 
 func play_move(direction: int) -> void:
-	_play(input_player, MOVE_STREAM, -18.0, 0.96 if direction < 0 else 1.04)
+	_play(input_player, _stream(MOVE_STREAM_PATH), -18.0, 0.96 if direction < 0 else 1.04)
 
 
 func play_rotate() -> void:
-	_play(input_player, ROTATE_STREAM, -16.5, 1.0)
+	_play(input_player, _stream(ROTATE_STREAM_PATH), -16.5, 1.0)
 
 
 func play_drop(distance: int) -> void:
 	# A tiny pitch range keeps long drops legible without turning them dramatic.
 	var pitch := remap(clampf(float(distance), 0.0, 10.0), 0.0, 10.0, 1.08, 0.94)
-	_play(motion_player, DROP_STREAM, -18.0, pitch)
+	_play(motion_player, _stream(DROP_STREAM_PATH), -18.0, pitch)
 
 
 func play_land() -> void:
 	# The source has a long tail; a soft cap keeps repeated turns tactile.
-	_play(impact_player, LAND_STREAM, -14.5, 1.08, 0.24, 0.08)
+	_play(impact_player, _stream(LAND_STREAM_PATH), -14.5, 1.08, 0.24, 0.08)
 
 
 func play_blocked() -> void:
@@ -57,16 +57,20 @@ func play_blocked() -> void:
 	if now - last_blocked_msec < BLOCKED_COOLDOWN_MSEC:
 		return
 	last_blocked_msec = now
-	_play(input_player, BLOCKED_STREAM, -20.0, 0.92, 0.18, 0.06)
+	_play(input_player, _stream(BLOCKED_STREAM_PATH), -20.0, 0.92, 0.18, 0.06)
 
 
 func play_merge(chain_length: int) -> void:
 	var pitch := 1.0 + minf(float(maxi(chain_length - 1, 0)) * 0.035, 0.14)
-	_play(result_player, MERGE_STREAM, -12.5, pitch, 0.38, 0.10)
+	_play(result_player, _stream(MERGE_STREAM_PATH), -12.5, pitch, 0.38, 0.10)
 
 
 func play_game_over() -> void:
-	_play(result_player, GAME_OVER_STREAM, -16.0, 0.94)
+	_play(result_player, _stream(GAME_OVER_STREAM_PATH), -16.0, 0.94)
+
+
+func _stream(path: String) -> AudioStream:
+	return load(path) as AudioStream
 
 
 func _play(
@@ -77,6 +81,8 @@ func _play(
 	hold_sec: float = 0.0,
 	fade_sec: float = 0.0
 ) -> void:
+	if stream == null:
+		return
 	var player_id := player.get_instance_id()
 	var version: int = int(play_versions.get(player_id, 0)) + 1
 	play_versions[player_id] = version
