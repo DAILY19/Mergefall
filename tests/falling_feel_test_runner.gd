@@ -334,6 +334,8 @@ func _run() -> void:
 	main.queue_free()
 	await process_frame
 	await process_frame
+	if failures.is_empty():
+		print("Gameplay integration tests passed.")
 	quit(0 if failures.is_empty() else 1)
 
 

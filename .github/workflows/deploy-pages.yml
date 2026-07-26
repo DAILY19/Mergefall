@@ -35,7 +35,11 @@ jobs:
         run: godot --headless -s res://tests/run_rules_tests.gd
 
       - name: Run gameplay integration tests
-        run: godot --headless -s res://tests/falling_feel_test_runner.gd
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --quit-after 1200 -s res://tests/falling_feel_test_runner.gd 2>&1 | tee integration-test.log
+          grep -q "Gameplay integration tests passed." integration-test.log
 
       - name: Export Web build
         run: |
