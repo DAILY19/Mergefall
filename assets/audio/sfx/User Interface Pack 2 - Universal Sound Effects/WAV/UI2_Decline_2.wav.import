@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://crbuuod3vuab7"
+path="res://.godot/imported/UI2_Decline_2.wav-628d2073275886c62330fcd6550b2f44.sample"
+
+[deps]
+
+source_file="res://assets/audio/sfx/User Interface Pack 2 - Universal Sound Effects/WAV/UI2_Decline_2.wav"
+dest_files=["res://.godot/imported/UI2_Decline_2.wav-628d2073275886c62330fcd6550b2f44.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

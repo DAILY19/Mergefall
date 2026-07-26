@@ -1,11 +1,12 @@
 @tool
 extends Control
 
-const SAVE_PATH := "user://dumpster_delights_turn_based.save"
+const SAVE_PATH := "user://mergefall.save"
 const BoardStateScript = preload("res://scripts/core/board_state.gd")
 const PieceGeneratorScript = preload("res://scripts/core/piece_generator.gd")
 const SaveDataScript = preload("res://scripts/core/save_data.gd")
 const SaveDataStoreScript = preload("res://scripts/core/save_data_store.gd")
+const GameplayAudioScript = preload("res://scripts/audio/gameplay_audio.gd")
 
 @export var config: Resource
 
@@ -15,6 +16,7 @@ const SaveDataStoreScript = preload("res://scripts/core/save_data_store.gd")
 var board_state = BoardStateScript.new()
 var piece_generator = PieceGeneratorScript.new()
 var save_store = SaveDataStoreScript.new(SAVE_PATH)
+var gameplay_audio
 var current_piece: Resource
 var next_pieces: Array[Resource] = []
 var current_anchor := Vector2i.ZERO
@@ -34,8 +36,14 @@ var can_undo := false
 var blocked_feedback_until_msec := 0
 var merge_feedback_steps: Array[Dictionary] = []
 var merge_feedback_until_msec := 0
+var spawn_feedback_until_msec := 0
+var lock_feedback_cells: Array[Vector2i] = []
+var lock_feedback_until_msec := 0
 var was_blocked_feedback_active := false
 var was_merge_feedback_active := false
+var was_motion_feedback_active := false
+var resolution_sequence_id := 0
+var resolution_score_target := 0
 
 
 func _ready() -> void:
@@ -43,25 +51,26 @@ func _ready() -> void:
 		update_configuration_warnings()
 		return
 	hud.bind_actions(
-		_on_rotate_left_pressed,
-		_try_place_piece,
-		_on_rotate_right_pressed,
+		_on_move_left_pressed,
+		_on_move_right_pressed,
+		_on_drop_pressed,
 		_on_undo_pressed,
 		_on_restart_pressed
 	)
-	board_view.anchor_targeted.connect(_on_board_anchor_targeted)
+	board_view.resolution_event_started.connect(_on_resolution_event_started)
+	gameplay_audio = GameplayAudioScript.new()
+	gameplay_audio.name = "GameplayAudio"
+	add_child(gameplay_audio)
 	resized.connect(_refresh_presentation)
 	set_process(true)
 	_load_save_data()
 	if config == null:
 		push_error("Main scene requires a GameConfig resource.")
-		hud.update_status({"hint_text": "Missing GameConfig resource."})
 		hud.clear_preview()
 		return
 	var issues: PackedStringArray = config.validate()
 	if not issues.is_empty():
 		push_error("Invalid GameConfig: %s" % ", ".join(issues))
-		hud.update_status({"hint_text": issues[0]})
 		hud.clear_preview()
 		return
 	board_view.config = config
@@ -71,13 +80,18 @@ func _ready() -> void:
 func start_new_game() -> void:
 	if config == null:
 		return
+	resolution_sequence_id += 1
+	board_view.cancel_resolution_feedback()
 	board_state.setup(config.board_width, config.board_height)
 	score = 0
 	move_count = 0
+	resolution_score_target = 0
 	game_over = false
 	can_undo = false
 	merge_feedback_steps.clear()
 	merge_feedback_until_msec = 0
+	lock_feedback_cells.clear()
+	lock_feedback_until_msec = 0
 	next_pieces.clear()
 	_fill_preview_queue()
 	_draw_next_piece()
@@ -93,37 +107,43 @@ func _fill_preview_queue() -> void:
 
 
 func _draw_next_piece() -> void:
+	hud.reset_multiplier_bar()
 	if next_pieces.is_empty():
 		_fill_preview_queue()
 	current_piece = next_pieces.pop_front() if not next_pieces.is_empty() else null
 	_fill_preview_queue()
 	current_rotation = 0
+	blocked_feedback_until_msec = 0
 	if current_piece == null:
 		game_over = true
+		gameplay_audio.play_game_over()
 		return
-	var bounds: Rect2i = _piece_bounds(current_piece.get_rotated_cells(current_rotation))
-	current_anchor = Vector2i(
-		maxi(0, int((config.board_width - bounds.size.x) / 2) - bounds.position.x),
-		maxi(0, -bounds.position.y)
-	)
-	_clamp_current_anchor()
-	if not board_state.can_place(_current_cells()):
+	if not _find_legal_staging_position():
 		game_over = true
+		gameplay_audio.play_game_over()
+		return
+	spawn_feedback_until_msec = Time.get_ticks_msec() + 240
 
 
 func _on_restart_pressed() -> void:
 	start_new_game()
 
 
-func _on_rotate_left_pressed() -> void:
-	_try_rotate(-1)
+func _on_move_left_pressed() -> void:
+	_try_move_anchor(Vector2i.LEFT)
 
 
-func _on_rotate_right_pressed() -> void:
-	_try_rotate(1)
+func _on_move_right_pressed() -> void:
+	_try_move_anchor(Vector2i.RIGHT)
+
+
+func _on_drop_pressed() -> void:
+	_confirm_drop()
 
 
 func _on_undo_pressed() -> void:
+	if board_view.is_resolution_feedback_active():
+		return
 	if not can_undo or previous_board == null:
 		_show_blocked_feedback()
 		_refresh_presentation()
@@ -138,6 +158,9 @@ func _on_undo_pressed() -> void:
 	can_undo = false
 	merge_feedback_steps.clear()
 	merge_feedback_until_msec = 0
+	lock_feedback_cells.clear()
+	lock_feedback_until_msec = 0
+	hud.reset_multiplier_bar()
 	_refresh_presentation()
 	hud.show_toast("UNDO")
 
@@ -152,18 +175,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_try_move_anchor(Vector2i.LEFT)
 	elif event.is_action_pressed("ui_right"):
 		_try_move_anchor(Vector2i.RIGHT)
-	elif event.is_action_pressed("ui_up"):
-		_try_move_anchor(Vector2i.UP)
-	elif event.is_action_pressed("ui_down"):
-		_try_move_anchor(Vector2i.DOWN)
-	elif event.is_action_pressed("ui_accept"):
-		_try_place_piece()
+	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_down"):
+		_confirm_drop()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
-			KEY_Q, KEY_Z:
-				_try_rotate(-1)
-			KEY_E, KEY_X:
-				_try_rotate(1)
 			KEY_R:
 				start_new_game()
 
@@ -171,7 +186,13 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(_delta: float) -> void:
 	var blocked_active := _is_blocked_feedback_active()
 	var merge_active := _is_merge_feedback_active()
-	if blocked_active or merge_active:
+	var motion_feedback_active := (
+		_spawn_feedback_ratio() > 0.0
+		or _lock_feedback_ratio() > 0.0
+	)
+	if motion_feedback_active or motion_feedback_active != was_motion_feedback_active:
+		_refresh_board_view()
+	elif blocked_active or merge_active:
 		_refresh_board_feedback_only()
 	if blocked_active != was_blocked_feedback_active:
 		_refresh_hud_only()
@@ -180,34 +201,52 @@ func _process(_delta: float) -> void:
 		_refresh_board_feedback_only()
 	was_blocked_feedback_active = blocked_active
 	was_merge_feedback_active = merge_active
+	was_motion_feedback_active = motion_feedback_active
 
 
 func _try_move_anchor(offset: Vector2i) -> void:
+	if board_view.is_resolution_feedback_active():
+		return
 	var candidate := current_anchor + offset
 	if _can_piece_fit(candidate, current_rotation):
 		current_anchor = candidate
+		board_view.play_move_feedback(offset)
+		gameplay_audio.play_move(offset.x)
 		_refresh_presentation()
 	else:
 		_show_blocked_feedback()
 		_refresh_presentation()
+
+
+func _confirm_drop() -> void:
+	if current_piece == null or game_over or board_view.is_resolution_feedback_active():
+		return
+	var from_cells := _current_cells()
+	var values: Array = current_piece.get_rotated_values(current_rotation)
+	var projection: Dictionary = board_state.project_settlement(from_cells, values)
+	if not projection.get("legal", false):
+		_show_blocked_feedback()
+		_refresh_presentation()
+		return
+	var landing_cells := _typed_vector2i_array(projection.get("landing_cells", []))
+	var max_drop_distance := 0
+	for index in mini(from_cells.size(), landing_cells.size()):
+		max_drop_distance = maxi(max_drop_distance, landing_cells[index].y - from_cells[index].y)
+	gameplay_audio.play_drop(max_drop_distance)
+	_lock_current_piece(from_cells, values)
 
 
 func _try_rotate(direction: int) -> void:
-	if current_piece == null or not current_piece.allow_rotation:
-		return
-	var candidate_rotation: int = posmod(current_rotation + direction, 4)
-	if _can_piece_fit(current_anchor, candidate_rotation):
-		current_rotation = candidate_rotation
-		_clamp_current_anchor()
-		_refresh_presentation()
-	else:
-		_show_blocked_feedback()
-		_refresh_presentation()
+	@warning_ignore("unused_parameter")
+	var _ignored_direction := direction
+	_show_blocked_feedback()
+	_refresh_presentation()
 
 
-func _try_place_piece() -> void:
-	var placement_cells := _current_cells()
-	if not board_state.can_place(placement_cells):
+func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), placement_values: Array = []) -> void:
+	if placement_values.is_empty() and current_piece != null:
+		placement_values = current_piece.get_rotated_values(current_rotation)
+	if not board_state.can_settle(placement_cells, placement_values):
 		_show_blocked_feedback()
 		_refresh_presentation()
 		return
@@ -220,45 +259,46 @@ func _try_place_piece() -> void:
 	previous_rotation = current_rotation
 	can_undo = true
 
-	board_state.place_cells(placement_cells, current_piece.get_rotated_values(current_rotation))
-	var merge_result: Dictionary = board_state.resolve_merges(config.min_merge_group, config.score_per_rank)
-	score += merge_result["score"]
-	best_score = maxi(best_score, score)
+	var settlement: Dictionary = board_state.settle_cells(
+		placement_cells,
+		placement_values,
+		config.score_per_rank
+	)
+	var earned_score: int = int(settlement["score"])
+	resolution_score_target = score + earned_score
+	hud.begin_turn_resolution()
+	resolution_sequence_id += 1
+	var sequence_id := resolution_sequence_id
+	board_view.play_resolution_feedback(previous_board, placement_cells, placement_values, settlement)
+	_show_lock_feedback(settlement["landing_cells"])
 	move_count += 1
-	_save_progress()
-	if merge_result["merged"]:
-		_show_merge_feedback(merge_result.get("steps", []))
-		hud.show_toast("MERGE!")
-	_draw_next_piece()
-	if game_over or not board_state.has_any_moves(config.piece_definitions):
-		game_over = true
-		hud.show_toast("BOARD JAMMED")
+	board_view.resolution_feedback_finished.connect(func() -> void:
+		if sequence_id != resolution_sequence_id:
+			return
+		score = resolution_score_target
+		best_score = maxi(best_score, score)
+		_save_progress()
+		hud.complete_turn_resolution()
+		_draw_next_piece()
+		if game_over:
+			hud.show_toast("BOARD JAMMED")
+		_refresh_presentation()
+	, CONNECT_ONE_SHOT)
 	_refresh_presentation()
 
 
-func _on_board_anchor_targeted(target_anchor: Vector2i) -> void:
-	if config == null or current_piece == null or game_over:
-		return
-	var resolved_anchor := _resolve_pointer_anchor(target_anchor)
-	if _can_piece_fit(resolved_anchor, current_rotation):
-		current_anchor = resolved_anchor
-	else:
-		_show_blocked_feedback()
-	_refresh_presentation()
-
-
-func _resolve_pointer_anchor(target_anchor: Vector2i) -> Vector2i:
-	var rotated: Array[Vector2i] = current_piece.get_rotated_cells(current_rotation)
-	var shifted_cells: Array[Vector2i] = []
-	for cell in rotated:
-		shifted_cells.append(cell + target_anchor)
-	if board_state.can_place(shifted_cells):
-		return target_anchor
-	var bounds := _piece_bounds(rotated)
-	var fallback := current_anchor
-	fallback.x = clampi(target_anchor.x, -bounds.position.x, config.board_width - (bounds.position.x + bounds.size.x))
-	fallback.y = clampi(target_anchor.y, -bounds.position.y, config.board_height - (bounds.position.y + bounds.size.y))
-	return fallback
+func _on_resolution_event_started(event: Dictionary) -> void:
+	match event.get("type", ""):
+		"rigid_landing":
+			gameplay_audio.play_land()
+		"merge_wave":
+			var event_score: int = int(event.get("score", 0))
+			score = mini(resolution_score_target, score + event_score)
+			best_score = maxi(best_score, score)
+			var multiplier: int = int(event.get("multiplier", event.get("wave", 1)))
+			hud.show_merge_wave(multiplier, minf(float(multiplier) / 4.0, 1.0))
+			gameplay_audio.play_merge(event.get("steps", []).size())
+			_refresh_hud_only()
 
 
 func _refresh_presentation() -> void:
@@ -267,8 +307,15 @@ func _refresh_presentation() -> void:
 
 
 func _refresh_board_view() -> void:
+	board_view.set_layout_rect(hud.get_board_layout_rect())
 	board_view.set_board_state(board_state)
-	board_view.set_active_piece(current_piece, current_anchor, current_rotation, game_over)
+	board_view.set_active_piece(
+		current_piece,
+		current_anchor,
+		current_rotation,
+		game_over,
+		_spawn_feedback_ratio()
+	)
 	_refresh_board_feedback_only()
 
 
@@ -276,7 +323,9 @@ func _refresh_board_feedback_only() -> void:
 	board_view.set_feedback(
 		_is_blocked_feedback_active(),
 		merge_feedback_steps,
-		_merge_feedback_ratio()
+		_merge_feedback_ratio(),
+		lock_feedback_cells,
+		_lock_feedback_ratio()
 	)
 
 
@@ -286,27 +335,39 @@ func _refresh_hud_only() -> void:
 		"score": score,
 		"best_score": best_score,
 		"move_count": move_count,
-		"target_text": "Place pieces, connect matching numbers, and merge groups.",
+		"target_text": "Drop fixed pieces. Equal neighbors merge in deterministic waves.",
 		"subtitle_text": _subtitle_text(),
-		"hint_text": _hint_text(),
+		"current_piece_text": _current_piece_text(),
 		"can_undo": can_undo
 	})
+	_refresh_merge_preview()
 
 
 func _subtitle_text() -> String:
 	if game_over:
-		return "No legal placements left. Start a fresh round."
+		return "No legal drop remains. Start a fresh run."
 	if current_piece != null:
-		return "Current piece: %s." % current_piece.display_name
+		return "Position %s, then drop it into place." % current_piece.display_name
 	return ""
 
 
-func _hint_text() -> String:
-	if _is_blocked_feedback_active():
-		return "That spot is jammed. Slide the snack somewhere roomier."
-	if game_over:
-		return "Press Place/Enter after moving a piece into position."
-	return "Tap the board or use arrows to move. Rotate, then Place the snack."
+func _current_piece_text() -> String:
+	if current_piece == null:
+		return "Current Form: --"
+	return "Current Form: %s" % current_piece.display_name
+
+
+func _refresh_merge_preview() -> void:
+	if current_piece == null or game_over or board_view.is_resolution_feedback_active():
+		return
+	var projection: Dictionary = board_state.project_settlement(
+		_current_cells(),
+		current_piece.get_rotated_values(current_rotation)
+	)
+	hud.set_merge_preview(
+		projection.get("legal", false)
+		and projection.get("has_first_wave_merge", false)
+	)
 
 
 func _current_cells() -> Array[Vector2i]:
@@ -318,24 +379,48 @@ func _current_cells() -> Array[Vector2i]:
 	return translated
 
 
-func _can_piece_fit(anchor: Vector2i, rotation: int) -> bool:
+func _can_piece_fit(anchor: Vector2i, rot: int) -> bool:
 	if current_piece == null:
 		return false
 	var translated: Array[Vector2i] = []
-	for cell in current_piece.get_rotated_cells(rotation):
+	for cell in current_piece.get_rotated_cells(rot):
 		translated.append(cell + anchor)
-	return board_state.can_place(translated)
+	return board_state.can_stage(translated)
 
 
-func _clamp_current_anchor() -> void:
+func _find_legal_staging_position() -> bool:
 	if current_piece == null:
-		return
-	var rotated: Array[Vector2i] = current_piece.get_rotated_cells(current_rotation)
-	var bounds := _piece_bounds(rotated)
-	var max_anchor_x: int = config.board_width - (bounds.position.x + bounds.size.x)
-	var max_anchor_y: int = config.board_height - (bounds.position.y + bounds.size.y)
-	current_anchor.x = clampi(current_anchor.x, -bounds.position.x, max_anchor_x)
-	current_anchor.y = clampi(current_anchor.y, -bounds.position.y, max_anchor_y)
+		return false
+	var rotation_count: int = 1
+	for rotation_index in rotation_count:
+		var rotated: Array[Vector2i] = current_piece.get_rotated_cells(rotation_index)
+		var bounds: Rect2i = _piece_bounds(rotated)
+		# Stage forms above the board entrance while preserving the same landing columns.
+		var stage_y: int = -bounds.position.y - bounds.size.y - 1
+		var min_anchor_x: int = -bounds.position.x
+		var max_anchor_x: int = int(config.board_width) - bounds.position.x - bounds.size.x
+		var centered_x: int = clampi(
+			int((config.board_width - bounds.size.x) / 2) - bounds.position.x,
+			min_anchor_x,
+			max_anchor_x
+		)
+		var candidates: Array[int] = [centered_x]
+		for distance in config.board_width:
+			for direction in [-1, 1]:
+				var candidate_x: int = centered_x + distance * direction
+				if candidate_x >= min_anchor_x and candidate_x <= max_anchor_x and not candidates.has(candidate_x):
+					candidates.append(candidate_x)
+		for candidate_x in candidates:
+			var anchor := Vector2i(candidate_x, stage_y)
+			var staged_cells: Array[Vector2i] = []
+			for cell in rotated:
+				staged_cells.append(cell + anchor)
+			var values: Array = current_piece.get_rotated_values(rotation_index)
+			if board_state.can_settle(staged_cells, values):
+				current_rotation = rotation_index
+				current_anchor = anchor
+				return true
+	return false
 
 
 func _piece_bounds(cells: Array) -> Rect2i:
@@ -353,6 +438,8 @@ func _piece_bounds(cells: Array) -> Rect2i:
 
 func _show_blocked_feedback() -> void:
 	blocked_feedback_until_msec = Time.get_ticks_msec() + 700
+	if gameplay_audio != null:
+		gameplay_audio.play_blocked()
 
 
 func _is_blocked_feedback_active() -> bool:
@@ -378,6 +465,30 @@ func _merge_feedback_ratio() -> float:
 		0.0,
 		1.0
 	)
+
+
+func _spawn_feedback_ratio() -> float:
+	return clampf(
+		float(spawn_feedback_until_msec - Time.get_ticks_msec()) / 240.0,
+		0.0,
+		1.0
+	)
+
+
+func _show_lock_feedback(cells: Array[Vector2i]) -> void:
+	lock_feedback_cells = _typed_vector2i_array(cells)
+	lock_feedback_until_msec = Time.get_ticks_msec() + 220
+
+
+func _lock_feedback_ratio() -> float:
+	var ratio := clampf(
+		float(lock_feedback_until_msec - Time.get_ticks_msec()) / 220.0,
+		0.0,
+		1.0
+	)
+	if ratio <= 0.0 and not lock_feedback_cells.is_empty():
+		lock_feedback_cells.clear()
+	return ratio
 
 
 func _save_progress() -> void:
@@ -408,3 +519,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if config.preview_piece_count <= 0:
 		warnings.append("GameConfig.preview_piece_count must be at least 1.")
 	return warnings
+
+
+func _typed_vector2i_array(source: Array) -> Array[Vector2i]:
+	var typed: Array[Vector2i] = []
+	for value in source:
+		typed.append(value as Vector2i)
+	return typed

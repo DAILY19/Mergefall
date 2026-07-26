@@ -1,23 +1,37 @@
-[gd_resource type="Resource" script_class="GameConfig" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="GameConfig" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/game_config.gd" id="1_cmy2d"]
 [ext_resource type="Resource" path="res://resources/pieces/single_crumb.tres" id="2_lwouq"]
 [ext_resource type="Resource" path="res://resources/pieces/domino_bites.tres" id="3_h1mom"]
 [ext_resource type="Resource" path="res://resources/pieces/l_snack.tres" id="4_2w3p2"]
+[ext_resource type="Resource" path="res://resources/pieces/zig_snack.tres" id="5_ew33j"]
+[ext_resource type="Resource" path="res://resources/pieces/tray_tower.tres" id="6_8u4rb"]
+[ext_resource type="Resource" path="res://resources/pieces/chunky_square.tres" id="7_vn3hy"]
 
 [resource]
 script = ExtResource("1_cmy2d")
 board_width = 6
-board_height = 8
+board_height = 7
 cell_size = 64
 cell_gap = 8
-outer_padding = 20
+outer_padding = 6
 min_merge_group = 2
 score_per_rank = 10
-piece_definitions = [ExtResource("2_lwouq"), ExtResource("3_h1mom"), ExtResource("4_2w3p2")]
+merge_charge_threshold = 8
+piece_definitions = [ExtResource("2_lwouq"), ExtResource("3_h1mom"), ExtResource("4_2w3p2"), ExtResource("5_ew33j"), ExtResource("6_8u4rb"), ExtResource("7_vn3hy")]
+preview_piece_count = 3
 background_color = Color(0.956863, 0.937255, 0.894118, 1)
 board_color = Color(0.847059, 0.764706, 0.647059, 1)
-empty_cell_color = Color(0.937255, 0.878431, 0.8, 1)
+empty_cell_color = Color(0.913725, 0.843137, 0.74902, 1)
+active_piece_valid_color = Color(0.180392, 0.682353, 0.4, 1)
+active_piece_invalid_color = Color(0.870588, 0.203922, 0.25098, 1)
+active_piece_valid_alpha = 0.82
+active_piece_invalid_alpha = 0.84
+active_piece_outline_color = Color(1, 0.972549, 0.941176, 1)
+active_piece_blocked_outline_color = Color(0.478431, 0.121569, 0.168627, 1)
+merge_flash_color = Color(1, 0.94902, 0.658824, 1)
+merge_flash_alpha = 0.9
+merge_flash_duration_sec = 0.78
 tile_palette = [Color(0.968627, 0.823529, 0.478431, 1), Color(1, 0.74902, 0.411765, 1), Color(1, 0.54902, 0.411765, 1), Color(0.94902, 0.372549, 0.360784, 1), Color(0.752941, 0.423529, 0.517647, 1), Color(0.423529, 0.356863, 0.482353, 1), Color(0.207843, 0.360784, 0.490196, 1), Color(0.164706, 0.615686, 0.560784, 1), Color(0.14902, 0.27451, 0.32549, 1), Color(0.0666667, 0.0666667, 0.0666667, 1)]
 tile_text_light = Color(1, 0.972549, 0.941176, 1)
 tile_text_dark = Color(0.290196, 0.203922, 0.0784314, 1)

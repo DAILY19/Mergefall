@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="PieceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/pieces/piece_definition.gd" id="1_6m44h"]
+
+[resource]
+script = ExtResource("1_6m44h")
+display_name = "Spire"
+cells = [Vector2i(0, 0), Vector2i(0, 1), Vector2i(0, 2)]
+cell_values = [1, 2, 1]
+spawn_weight = 2
+preview_color = Color(0.207843, 0.360784, 0.490196, 1)
+allow_rotation = false

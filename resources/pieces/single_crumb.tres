@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_76kec")
-display_name = "Crumb"
+display_name = "Seed"
 cells = [Vector2i(0, 0)]
 cell_values = [1]
 spawn_weight = 2

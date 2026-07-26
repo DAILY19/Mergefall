@@ -1,0 +1,12 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Mergefall-local tile treatment derived from the supplied Tetris reference
+    sheets: clipped corners, a quiet upper-left highlight, and a grounded
+    lower-right edge. Kept transparent so the game's value palette remains
+    authoritative.
+  -->
+  <path d="M8 2H56L62 8V56L56 62H8L2 56V8L8 2Z" fill="#FFFFFF" fill-opacity=".08"/>
+  <path d="M8 3H55M3 8V55" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="3" stroke-linecap="round"/>
+  <path d="M9 60H55L60 55V9" stroke="#2F2419" stroke-opacity=".22" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M10 8H54" stroke="#FFFFFF" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>
+</svg>

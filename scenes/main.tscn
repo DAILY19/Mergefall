@@ -1,15 +1,14 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3 uid="uid://dyd7h5w8d60o"]
 
-[ext_resource type="Script" path="res://scripts/managers/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/ui/board_view.gd" id="2_board"]
+[ext_resource type="Script" uid="uid://d0cr0jvytwps7" path="res://scripts/managers/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://bwkhf6l65jmij" path="res://scripts/ui/board_view.gd" id="2_board"]
 [ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="Resource" path="res://resources/config/default_game_config.tres" id="4_config"]
-[ext_resource type="FontFile" path="res://assets/fonts/Neatpixels Standard/neatpixels-standard.ttf" id="5_body_font"]
-[ext_resource type="FontFile" path="res://assets/fonts/Neatpixels Minimal/NeatpixelsMinimal.ttf" id="6_value_font"]
-[ext_resource type="Texture2D" path="res://assets/ui/Free Inventory/Inventory_background.png" id="7_panel"]
-[ext_resource type="Texture2D" path="res://assets/ui/Free Inventory/Inventory_Slot.png" id="8_slot"]
+[ext_resource type="FontFile" uid="uid://cyovpvbo8ws1t" path="res://assets/fonts/Neatpixels Standard/neatpixels-standard.ttf" id="5_body_font"]
+[ext_resource type="FontFile" uid="uid://dgywmurrld6n8" path="res://assets/fonts/Neatpixels Minimal/NeatpixelsMinimal.ttf" id="6_value_font"]
+[ext_resource type="Resource" path="res://resources/themes/default_mergefall_visual_set.tres" id="7_visual_set"]
 
-[node name="Main" type="Control"]
+[node name="Main" type="Control" unique_id=475931353]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,7 +19,7 @@ mouse_filter = 1
 script = ExtResource("1_main")
 config = ExtResource("4_config")
 
-[node name="BoardView" type="Control" parent="."]
+[node name="BoardView" type="Control" parent="." unique_id=1499944754]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -29,14 +28,19 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_board")
-top_padding = 184.0
-bottom_padding = 188.0
+bottom_padding = 0.0
+visual_set = ExtResource("7_visual_set")
 value_font = ExtResource("6_value_font")
+frame_fill_color = Color(0.87451, 0.768627, 0.639216, 0.94)
+frame_border_color = Color(1, 0.972549, 0.92549, 0.72)
 
-[node name="GameHUD" parent="." instance=ExtResource("3_hud")]
+[node name="GameHUD" parent="." unique_id=2116614588 instance=ExtResource("3_hud")]
 unique_name_in_owner = true
+layout_mode = 1
 title_font = ExtResource("5_body_font")
 body_font = ExtResource("5_body_font")
-header_panel_texture = ExtResource("7_panel")
-footer_panel_texture = ExtResource("7_panel")
-stat_chip_texture = ExtResource("8_slot")
+value_font = ExtResource("6_value_font")
+visual_set = ExtResource("7_visual_set")
+stack_separation = 4
+section_separation = 4
+stats_separation = 6

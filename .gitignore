@@ -1,7 +1,11 @@
 # Godot 4+ specific ignores
 .godot/
+build/
 /android/
 /tools/local-godot/
+/tools/Faces Creator Tool - Fantasy Dreamland/
+/tools/Hero Creator [Rogue Adventure]/
+/tools/Retro Character Creator Tool 4.2.0/
 docs/*.wasm
 docs/*.pck
 docs/*.js

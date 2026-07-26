@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brighter variant for the falling piece and compact queue previews. -->
+  <path d="M8 2H56L62 8V56L56 62H8L2 56V8L8 2Z" fill="#FFFFFF" fill-opacity=".1"/>
+  <path d="M8 3H55M3 8V55" stroke="#FFFFFF" stroke-opacity=".62" stroke-width="3" stroke-linecap="round"/>
+  <path d="M9 60H55L60 55V9" stroke="#4A3414" stroke-opacity=".24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M11 8H53" stroke="#FFFFFF" stroke-opacity=".24" stroke-width="2" stroke-linecap="round"/>
+</svg>

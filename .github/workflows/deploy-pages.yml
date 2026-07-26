@@ -15,23 +15,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.1
+          use-dotnet: false
+          include-templates: true
+
+      - name: Import project
+        run: godot --headless --quit
+
+      - name: Run rules tests
+        run: godot --headless -s res://tests/run_rules_tests.gd
+
+      - name: Run falling feel tests
+        run: godot --headless -s res://tests/falling_feel_test_runner.gd
+
+      - name: Export Web build
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release Web build/web/index.html
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload exported web build
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: build/web
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

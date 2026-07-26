@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://copha4h51c3tm"
+path="res://.godot/imported/GS2_Land.wav-d8e7d4227356f03776628aec29409bcb.sample"
+
+[deps]
+
+source_file="res://assets/audio/sfx/Game Sound Effects 2 - Universal Sound Effects/WAV/GS2_Land.wav"
+dest_files=["res://.godot/imported/GS2_Land.wav-d8e7d4227356f03776628aec29409bcb.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

@@ -13,66 +13,244 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_hud")
 
-[node name="HeaderPanel" type="PanelContainer" parent="."]
+[node name="SafeArea" type="MarginContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 15
 anchor_right = 1.0
-offset_left = 24.0
-offset_top = 20.0
-offset_right = -24.0
-offset_bottom = 176.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 12.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
 
-[node name="HeaderBox" type="VBoxContainer" parent="HeaderPanel"]
+[node name="AppStack" type="VBoxContainer" parent="SafeArea"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TopPanel" type="PanelContainer" parent="SafeArea/AppStack"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="HeaderPanel/HeaderBox"]
+[node name="TopStack" type="VBoxContainer" parent="SafeArea/AppStack/TopPanel"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Dumpster Delights"
+theme_override_constants/separation = 4
+
+[node name="BrandRow" type="HBoxContainer" parent="SafeArea/AppStack/TopPanel/TopStack"]
+visible = false
+layout_mode = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/BrandRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Mergefall"
 horizontal_alignment = 1
 
-[node name="SubtitleLabel" type="Label" parent="HeaderPanel/HeaderBox"]
+[node name="SubtitleLabel" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
-text = "Place weird snack pieces, connect numbers, and merge them."
+text = "Stack forms, set the anchor, and chase the next merge."
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="StatsRow" type="HBoxContainer" parent="HeaderPanel/HeaderBox"]
+[node name="StatsRow" type="HBoxContainer" parent="SafeArea/AppStack/TopPanel/TopStack"]
 unique_name_in_owner = true
 layout_mode = 2
 alignment = 1
 
-[node name="ScoreLabel" type="Label" parent="HeaderPanel/HeaderBox/StatsRow"]
-unique_name_in_owner = true
+[node name="ScoreCard" type="PanelContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow"]
 layout_mode = 2
-text = "Score: 0"
+size_flags_horizontal = 3
 
-[node name="BestLabel" type="Label" parent="HeaderPanel/HeaderBox/StatsRow"]
-unique_name_in_owner = true
+[node name="ScoreBox" type="VBoxContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/ScoreCard"]
 layout_mode = 2
-text = "Best: 0"
 
-[node name="MovesLabel" type="Label" parent="HeaderPanel/HeaderBox/StatsRow"]
-unique_name_in_owner = true
+[node name="ScoreCaption" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/ScoreCard/ScoreBox"]
 layout_mode = 2
-text = "Turns: 0"
+text = "Score"
+horizontal_alignment = 1
 
-[node name="TargetLabel" type="Label" parent="HeaderPanel/HeaderBox"]
+[node name="ScoreLabel" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/ScoreCard/ScoreBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Turn-based placement + 2048-style merging"
+text = "0"
+horizontal_alignment = 1
+
+[node name="BestCard" type="PanelContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BestBox" type="VBoxContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/BestCard"]
+layout_mode = 2
+
+[node name="BestCaption" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/BestCard/BestBox"]
+layout_mode = 2
+text = "Best"
+horizontal_alignment = 1
+
+[node name="BestLabel" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/BestCard/BestBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0"
+horizontal_alignment = 1
+
+[node name="MovesCard" type="PanelContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MovesBox" type="VBoxContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/MovesCard"]
+layout_mode = 2
+
+[node name="MovesCaption" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/MovesCard/MovesBox"]
+layout_mode = 2
+text = "Turns"
+horizontal_alignment = 1
+
+[node name="MovesLabel" type="Label" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow/MovesCard/MovesBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0"
+horizontal_alignment = 1
+
+[node name="PreviewPanel" type="PanelContainer" parent="SafeArea/AppStack/TopPanel/TopStack"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PreviewStrip" type="Control" parent="SafeArea/AppStack/TopPanel/TopStack/PreviewPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 58)
+script = ExtResource("2_preview")
+title_text = "Queue"
+
+[node name="BoardPanel" type="PanelContainer" parent="SafeArea/AppStack"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BoardMargin" type="MarginContainer" parent="SafeArea/AppStack/BoardPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="BoardSlot" type="Control" parent="SafeArea/AppStack/BoardPanel/BoardMargin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="BottomPanel" type="PanelContainer" parent="SafeArea/AppStack"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BottomStack" type="VBoxContainer" parent="SafeArea/AppStack/BottomPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="CurrentPieceLabel" type="Label" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "Current Form: Seed"
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="PreviewStrip" type="Control" parent="HeaderPanel/HeaderBox"]
+[node name="ChargeHeader" type="HBoxContainer" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+layout_mode = 2
+
+[node name="ChargeLabel" type="Label" parent="SafeArea/AppStack/BottomPanel/BottomStack/ChargeHeader"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 132)
-script = ExtResource("2_preview")
-title_text = "Next Bites"
+size_flags_horizontal = 3
+text = "MULTIPLIER"
+
+[node name="ChargeValueLabel" type="Label" parent="SafeArea/AppStack/BottomPanel/BottomStack/ChargeHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "x1"
+horizontal_alignment = 2
+
+[node name="ChargeBar" type="ProgressBar" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+max_value = 8.0
+show_percentage = false
+
+[node name="ButtonsRow" type="GridContainer" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+layout_mode = 2
+columns = 3
+
+[node name="LeftButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/ButtonsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Left"
+
+[node name="DropButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/ButtonsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Drop"
+
+[node name="RightButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/ButtonsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Right"
+
+[node name="RotateButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Rotate"
+
+[node name="SecondaryButtonsRow" type="HBoxContainer" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+layout_mode = 2
+
+[node name="UndoButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/SecondaryButtonsRow"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Undo"
+
+[node name="RestartButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/SecondaryButtonsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "New Run"
+
+[node name="TargetLabel" type="Label" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "Build matching groups to trigger merges."
+horizontal_alignment = 1
+autowrap_mode = 3
 
 [node name="ToastLabel" type="Label" parent="."]
 unique_name_in_owner = true
@@ -83,66 +261,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -140.0
+offset_left = -132.0
 offset_top = -24.0
-offset_right = 140.0
+offset_right = 132.0
 offset_bottom = 24.0
-text = "Combo!"
+text = "MERGE!"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="FooterPanel" type="PanelContainer" parent="."]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -164.0
-offset_right = -24.0
-offset_bottom = -24.0
-
-[node name="FooterBox" type="VBoxContainer" parent="FooterPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="HintLabel" type="Label" parent="FooterPanel/FooterBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Arrows move, Q/E rotate, Enter places."
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="ButtonsRow" type="HBoxContainer" parent="FooterPanel/FooterBox"]
-layout_mode = 2
-
-[node name="RotateLeftButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Rotate L"
-
-[node name="PlaceButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Place"
-
-[node name="RotateRightButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Rotate R"
-
-[node name="UndoButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Undo"
-
-[node name="RestartButton" type="Button" parent="FooterPanel/FooterBox/ButtonsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Cook Another Round"

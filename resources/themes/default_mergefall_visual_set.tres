@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MergefallVisualSet" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mergefall_visual_set.gd" id="1_visual_set"]
+[ext_resource type="Texture2D" path="res://assets/sprites/local_tetris/tile_cell_active.svg" id="5_active"]
+[ext_resource type="Texture2D" path="res://assets/sprites/local_tetris/tile_cell_bevel.svg" id="6_placed"]
+[ext_resource type="Texture2D" path="res://assets/ui/preview/preview_card.svg" id="9_card"]
+
+[resource]
+script = ExtResource("1_visual_set")
+occupied_cell_overlay = ExtResource("6_placed")
+active_piece_cell_overlay = ExtResource("5_active")
+preview_card_texture = ExtResource("9_card")
+preview_piece_cell_overlay = ExtResource("5_active")

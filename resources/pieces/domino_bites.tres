@@ -4,9 +4,10 @@
 
 [resource]
 script = ExtResource("1_n7o7a")
-display_name = "Domino Bites"
+display_name = "Twinfall"
 cells = [Vector2i(0, 0), Vector2i(1, 0)]
 cell_values = [1, 1]
+cell_values = [1, 2]
 spawn_weight = 4
 preview_color = Color(1, 0.74902, 0.411765, 1)
-allow_rotation = true
+allow_rotation = false

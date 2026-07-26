@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://c5fsfja27x83a"
+path="res://.godot/imported/UI_Button_Click_8.wav-feea4ece8558a5ec6a12e2318c1f3f72.sample"
+
+[deps]
+
+source_file="res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_8.wav"
+dest_files=["res://.godot/imported/UI_Button_Click_8.wav-feea4ece8558a5ec6a12e2318c1f3f72.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2
