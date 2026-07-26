@@ -24,8 +24,8 @@
 
 [resource]
 script = ExtResource("1_cmy2d")
-board_width = 7
-board_height = 9
+board_width = 8
+board_height = 10
 cell_size = 64
 cell_gap = 8
 outer_padding = 6

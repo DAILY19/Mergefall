@@ -20,8 +20,9 @@ static func run() -> PackedStringArray:
 	_test_new_results_wait_until_later_wave(failures)
 	_test_determinism(failures)
 	_test_scoring_waves(failures)
-	_test_same_piece_merges_are_allowed(failures)
+	_test_same_piece_merges_are_prevented_during_landing(failures)
 	_test_piece_generation_values(failures)
+	_test_orientation_self_merge_regressions(failures)
 	_test_tetromino_catalog(failures)
 	_test_large_sample_generation(failures)
 	_test_game_over_uses_settlement(failures)
@@ -33,15 +34,15 @@ static func run() -> PackedStringArray:
 static func _test_config_dimensions(failures: PackedStringArray) -> void:
 	var board = BoardStateScript.new()
 	board.setup(Config.board_width, Config.board_height)
-	_expect(board.width == 7, "Mergefall board width should be 7.", failures)
-	_expect(board.height == 9, "Mergefall board height should be 9.", failures)
+	_expect(board.width == 8, "Mergefall board width should be 8.", failures)
+	_expect(board.height == 10, "Mergefall board height should be 10.", failures)
 	var stored_cells := 0
 	for row in board.cells:
 		stored_cells += row.size()
-	_expect(stored_cells == 63, "Board storage should contain 63 cells.", failures)
-	_expect(board.is_inside(Vector2i(6, 8)), "Column 6 and row 8 should be playable.", failures)
-	_expect(not board.is_inside(Vector2i(7, 0)), "Column 7 should be outside the board.", failures)
-	_expect(not board.is_inside(Vector2i(0, 9)), "Row 9 should be outside the board.", failures)
+	_expect(stored_cells == 80, "Board storage should contain 80 cells.", failures)
+	_expect(board.is_inside(Vector2i(7, 9)), "Column 7 and row 9 should be playable.", failures)
+	_expect(not board.is_inside(Vector2i(8, 0)), "Column 8 should be outside the board.", failures)
+	_expect(not board.is_inside(Vector2i(0, 10)), "Row 10 should be outside the board.", failures)
 
 
 static func _test_basic_staging_and_rigid_landing(failures: PackedStringArray) -> void:
@@ -186,12 +187,15 @@ static func _test_scoring_waves(failures: PackedStringArray) -> void:
 	_expect(merge_events[0].get("multiplier", 0) == 1 and merge_events[1].get("multiplier", 0) == 2, "Merge events should carry authoritative wave multipliers.", failures)
 
 
-static func _test_same_piece_merges_are_allowed(failures: PackedStringArray) -> void:
+static func _test_same_piece_merges_are_prevented_during_landing(failures: PackedStringArray) -> void:
 	var board = BoardStateScript.new()
 	board.setup(6, 7)
 	var result := board.settle_cells([Vector2i(2, -1), Vector2i(3, -1)], [1, 1], 10)
-	_expect(result["merged"], "Same-piece cells should follow normal adjacency merge rules.", failures)
-	_expect(_count_value(board, 2) == 1, "Same-piece pair should produce one doubled tile.", failures)
+	_expect(not result["merged"], "Same-spawn cells should not merge during their landing-resolution cycle.", failures)
+	_expect(_count_value(board, 1) == 2, "Protected same-spawn cells should both remain on the board.", failures)
+	var later := board.resolve_merges(2, 10)
+	_expect(later["merged"], "Same cells should merge normally after landing protection expires.", failures)
+	_expect(_count_value(board, 2) == 1, "Expired protection should allow the later doubled tile.", failures)
 
 
 static func _test_piece_generation_values(failures: PackedStringArray) -> void:
@@ -236,6 +240,29 @@ static func _test_tetromino_catalog(failures: PackedStringArray) -> void:
 	_expect(counts.keys().size() == 7, "Tetromino catalog should contain exactly seven families.", failures)
 	_expect(catalog.size() == 19, "Tetromino catalog should contain exactly 19 orientations.", failures)
 	_expect(counts == {"I": 2, "O": 1, "T": 4, "S": 2, "Z": 2, "J": 4, "L": 4}, "Tetromino family counts should match the standard orientation catalog.", failures)
+
+
+static func _test_orientation_self_merge_regressions(failures: PackedStringArray) -> void:
+	var generator = PieceGeneratorScript.new()
+	var catalog := generator.get_catalog(Config.piece_definitions)
+	for piece in catalog:
+		var cells: Array[Vector2i] = piece.get_rotated_cells(0)
+		var values := generator._values_for_cells(cells, [1, 2])
+		_expect(_unique_values(values).size() == 2, "%s should use exactly two generated ranks." % piece.display_name, failures)
+		for support in ["empty", "flat", "uneven"]:
+			var board = BoardStateScript.new()
+			board.setup(Config.board_width, Config.board_height)
+			if support == "flat":
+				for x in Config.board_width:
+					board.set_value(Vector2i(x, Config.board_height - 1), 9 + posmod(x, 2))
+			elif support == "uneven":
+				for x in Config.board_width:
+					for y in range(Config.board_height - 1, Config.board_height - 1 - posmod(x, 3), -1):
+						board.set_value(Vector2i(x, y), 8 + posmod(x + y, 3))
+			var staged := _center_staged_cells(cells, Config.board_width)
+			var result: Dictionary = board.settle_cells(staged, values, 10)
+			_expect(result.get("legal", false), "%s should settle on %s support." % [piece.display_name, support], failures)
+			_expect(not result.get("merged", false), "%s should not self-merge on %s support." % [piece.display_name, support], failures)
 
 
 static func _test_large_sample_generation(failures: PackedStringArray) -> void:
@@ -324,6 +351,25 @@ static func _count_value(board, value: int) -> int:
 			if board.get_value(Vector2i(x, y)) == value:
 				count += 1
 	return count
+
+
+static func _unique_values(values: Array) -> Dictionary:
+	var unique := {}
+	for value in values:
+		unique[int(value)] = true
+	return unique
+
+
+static func _center_staged_cells(cells: Array[Vector2i], board_width: int) -> Array[Vector2i]:
+	var bounds := _piece_bounds(cells)
+	var anchor := Vector2i(
+		int((board_width - bounds.size.x) / 2) - bounds.position.x,
+		-bounds.position.y - bounds.size.y - 1
+	)
+	var staged: Array[Vector2i] = []
+	for cell in cells:
+		staged.append(cell + anchor)
+	return staged
 
 
 static func _merge_wave_count(result: Dictionary) -> int:

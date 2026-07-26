@@ -3,8 +3,8 @@ class_name GameConfig
 extends Resource
 
 const PieceDefinitionScript = preload("res://scripts/pieces/piece_definition.gd")
-const BOARD_WIDTH := 7
-const BOARD_HEIGHT := 9
+const BOARD_WIDTH := 8
+const BOARD_HEIGHT := 10
 
 @export_group("Board")
 @export_range(4, 10, 1) var board_width := BOARD_WIDTH

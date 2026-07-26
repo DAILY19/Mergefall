@@ -21,7 +21,7 @@ func _run() -> void:
 	main.set_process(false)
 	var failures := PackedStringArray()
 
-	_expect(main.config.board_width == 7 and main.config.board_height == 9, "The scene should use the authoritative 7x9 configuration.", failures)
+	_expect(main.config.board_width == 8 and main.config.board_height == 10, "The scene should use the authoritative 8x10 configuration.", failures)
 	_expect(main.config.piece_definitions.size() == 19, "The scene should use the 19-orientation tetromino catalog.", failures)
 	_expect(main.completed_turns == 0 and main.current_piece.generation_turn == 0, "A new run should activate a turn-zero piece.", failures)
 	_expect(

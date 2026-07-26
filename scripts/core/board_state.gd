@@ -4,6 +4,7 @@ extends RefCounted
 var width := 0
 var height := 0
 var cells: Array[Array] = []
+var cell_sources: Array[Array] = []
 
 const COMPONENT_DIRECTIONS: Array[Vector2i] = [Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP]
 
@@ -12,11 +13,15 @@ func setup(board_width: int, board_height: int) -> void:
 	width = board_width
 	height = board_height
 	cells.clear()
+	cell_sources.clear()
 	for y in height:
 		var row: Array[int] = []
+		var source_row: Array[int] = []
 		for _x in width:
 			row.append(0)
+			source_row.append(0)
 		cells.append(row)
+		cell_sources.append(source_row)
 
 
 func duplicate_state() -> BoardState:
@@ -25,6 +30,8 @@ func duplicate_state() -> BoardState:
 	clone.height = height
 	for row in cells:
 		clone.cells.append(row.duplicate())
+	for source_row in cell_sources:
+		clone.cell_sources.append(source_row.duplicate())
 	return clone
 
 
@@ -41,6 +48,19 @@ func get_value(position: Vector2i) -> int:
 func set_value(position: Vector2i, value: int) -> void:
 	if is_inside(position):
 		cells[position.y][position.x] = value
+		if cell_sources.size() == height:
+			cell_sources[position.y][position.x] = 0
+
+
+func get_source(position: Vector2i) -> int:
+	if not is_inside(position) or cell_sources.size() != height:
+		return 0
+	return cell_sources[position.y][position.x]
+
+
+func set_source(position: Vector2i, source: int) -> void:
+	if is_inside(position) and cell_sources.size() == height:
+		cell_sources[position.y][position.x] = source
 
 
 func can_place(cells_to_place: Array) -> bool:
@@ -141,15 +161,20 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> D
 	var original_cells: Array[Array] = []
 	for row in cells:
 		original_cells.append(row.duplicate())
+	var original_sources: Array[Array] = []
+	for source_row in cell_sources:
+		original_sources.append(source_row.duplicate())
 
 	var landing := get_rigid_landing_cells(cells_to_drop)
 	if landing.size() != cells_to_drop.size():
 		cells = original_cells
+		cell_sources = original_sources
 		return result
 
 	for index in landing.size():
 		var value := 1 if index >= values.size() else int(values[index])
 		set_value(landing[index], value)
+		set_source(landing[index], 1)
 	result["legal"] = true
 	result["landing_cells"] = landing
 	result["settled_cells"] = landing.duplicate()
@@ -190,6 +215,7 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> D
 		if not gravity["moved"] and not merge["merged"]:
 			break
 		pass_index += 1
+	_clear_sources()
 	result["events"].append({"type": "stable"})
 	return result
 
@@ -242,8 +268,10 @@ func _gravity_pass() -> Dictionary:
 			if value <= 0:
 				continue
 			if y != write_y:
+				var source := get_source(Vector2i(x, y))
 				set_value(Vector2i(x, y), 0)
 				set_value(Vector2i(x, write_y), value)
+				set_source(Vector2i(x, write_y), source)
 				var from := Vector2i(x, y)
 				var to := Vector2i(x, write_y)
 				moved_cells.append(to)
@@ -280,6 +308,7 @@ func _merge_wave(wave_index: int) -> Dictionary:
 	for write in writes:
 		var to_value: int = int(write["value"]) + 1
 		set_value(write["target"], to_value)
+		set_source(write["target"], 0)
 		var score_awarded := int(pow(2.0, to_value)) * wave_index
 		result["score"] += score_awarded
 		result["steps"].append(_merge_step(write["source"], write["target"], int(write["value"]), "merge_wave", wave_index - 1, wave_index, score_awarded))
@@ -309,11 +338,24 @@ func _find_merge_pairs() -> Array[Array]:
 				if used.has(cell):
 					continue
 				for neighbor: Vector2i in _ordered_equal_neighbors(cell, used):
+					if _is_protected_same_spawn_pair(cell, neighbor):
+						continue
 					used[cell] = true
 					used[neighbor] = true
 					pairs.append([cell, neighbor])
 					break
 	return pairs
+
+
+func _is_protected_same_spawn_pair(first: Vector2i, second: Vector2i) -> bool:
+	var first_source := get_source(first)
+	return first_source > 0 and first_source == get_source(second)
+
+
+func _clear_sources() -> void:
+	for y in cell_sources.size():
+		for x in cell_sources[y].size():
+			cell_sources[y][x] = 0
 
 
 func _equal_component(start: Vector2i, visited: Dictionary) -> Array[Vector2i]:

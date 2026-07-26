@@ -9,6 +9,7 @@ var rng := RandomNumberGenerator.new()
 var _catalog_source: Array[Resource] = []
 var _catalog_cache: Dictionary = {}
 var _available_families: Array[String] = []
+var _settled_color_cache: Dictionary = {}
 
 
 func _init() -> void:
@@ -102,12 +103,97 @@ func _weighted_index(weights: Array[int], excluded_index: int = -1) -> int:
 
 func _values_for_cells(cells: Array[Vector2i], pair: Array[int]) -> Array[int]:
 	var flip_parity := rng.randi_range(0, 1) == 1
-	var even_rank: int = pair[1] if flip_parity else pair[0]
-	var odd_rank: int = pair[0] if flip_parity else pair[1]
+	var first_rank: int = pair[1] if flip_parity else pair[0]
+	var second_rank: int = pair[0] if flip_parity else pair[1]
+	var groups := _settled_color_groups(cells)
 	var values: Array[int] = []
-	for cell in cells:
-		values.append(even_rank if posmod(cell.x + cell.y, 2) == 0 else odd_rank)
+	for index in cells.size():
+		values.append(first_rank if int(groups[index]) == 0 else second_rank)
 	return values
+
+
+func _settled_color_groups(cells: Array[Vector2i]) -> Array[int]:
+	var cache_key := _shape_key(cells)
+	if _settled_color_cache.has(cache_key):
+		return _settled_color_cache[cache_key].duplicate()
+	var settled := _flat_settled_cells(cells)
+	var adjacency := {}
+	for index in settled.size():
+		adjacency[index] = []
+	for first_index in settled.size():
+		for second_index in range(first_index + 1, settled.size()):
+			if _is_orthogonal(cells[first_index], cells[second_index]):
+				adjacency[first_index].append(second_index)
+				adjacency[second_index].append(first_index)
+	var groups: Array[int] = []
+	for _index in cells.size():
+		groups.append(-1)
+	var order := range(cells.size())
+	order.sort_custom(func(a: int, b: int) -> bool:
+		var first: Vector2i = settled[a]
+		var second: Vector2i = settled[b]
+		return first.y < second.y or (first.y == second.y and first.x < second.x)
+	)
+	for start_index in order:
+		if groups[start_index] >= 0:
+			continue
+		groups[start_index] = 0
+		var queue: Array[int] = [start_index]
+		var queue_index := 0
+		while queue_index < queue.size():
+			var current: int = queue[queue_index]
+			queue_index += 1
+			var neighbors: Array = adjacency[current]
+			neighbors.sort_custom(func(a: int, b: int) -> bool:
+				var first: Vector2i = settled[a]
+				var second: Vector2i = settled[b]
+				return first.y < second.y or (first.y == second.y and first.x < second.x)
+			)
+			for neighbor in neighbors:
+				if groups[neighbor] < 0:
+					groups[neighbor] = 1 - groups[current]
+					queue.append(neighbor)
+	var typed: Array[int] = []
+	for group in groups:
+		typed.append(int(group))
+	_settled_color_cache[cache_key] = typed.duplicate()
+	return typed
+
+
+func _flat_settled_cells(cells: Array[Vector2i]) -> Array[Vector2i]:
+	var columns := {}
+	for index in cells.size():
+		var cell := cells[index]
+		if not columns.has(cell.x):
+			columns[cell.x] = []
+		columns[cell.x].append({"index": index, "cell": cell})
+	var settled: Array[Vector2i] = []
+	settled.resize(cells.size())
+	for x in columns.keys():
+		var column: Array = columns[x]
+		column.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var first: Vector2i = a["cell"]
+			var second: Vector2i = b["cell"]
+			return first.y > second.y or (first.y == second.y and first.x < second.x)
+		)
+		for stack_index in column.size():
+			settled[int(column[stack_index]["index"])] = Vector2i(int(x), -stack_index)
+	var min_x := settled[0].x
+	var min_y := settled[0].y
+	for cell in settled:
+		min_x = mini(min_x, cell.x)
+		min_y = mini(min_y, cell.y)
+	for index in settled.size():
+		settled[index] -= Vector2i(min_x, min_y)
+	return settled
+
+
+func _shape_key(cells: Array[Vector2i]) -> String:
+	var sorted := cells.duplicate()
+	sorted.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	return str(sorted)
 
 
 func _has_valid_values(piece: Resource) -> bool:

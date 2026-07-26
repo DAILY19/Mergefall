@@ -38,7 +38,7 @@ const BoardStateScript = preload("res://scripts/core/board_state.gd")
 		_clear_style_caches()
 		queue_redraw()
 
-@export_range(3, 5, 1) var drop_zone_rows := 4:
+@export_range(3, 5, 1) var drop_zone_rows := 5:
 	set(value):
 		drop_zone_rows = value
 		_mark_layout_dirty()
@@ -127,7 +127,7 @@ const MIN_EDGE_MARGIN := 8.0
 const MAX_EDGE_MARGIN := 18.0
 const MIN_INTER_REGION_GAP := 16.0
 const MAX_INTER_REGION_GAP := 48.0
-const DROP_ZONE_TILE_ROWS := 5.0
+const DROP_ZONE_TILE_ROWS := 4.75
 const MIN_TILE_SIZE := 28.0
 const GAP_TO_TILE_RATIO := 0.115
 const MIN_CELL_GAP := 4.0
