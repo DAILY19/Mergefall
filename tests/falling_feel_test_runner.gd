@@ -15,6 +15,9 @@ func _run() -> void:
 	var main = scene.instantiate()
 	root.add_child(main)
 	await process_frame
+	await process_frame
+	main._refresh_presentation()
+	await process_frame
 	main.set_process(false)
 	var failures := PackedStringArray()
 
@@ -26,12 +29,19 @@ func _run() -> void:
 		"Initial queue previews should be generated for their future activation turns.",
 		failures
 	)
-	var buttons_row: Node = main.hud.get_node("%LeftButton").get_parent()
-	var visible_buttons: Array[String] = []
-	for child in buttons_row.get_children():
-		if child is Button and child.visible:
-			visible_buttons.append(child.text.to_upper())
-	_expect(visible_buttons == ["LEFT", "DROP", "RIGHT"], "Bottom controls should be ordered LEFT, DROP, RIGHT.", failures)
+	var control_rects: Dictionary = main.hud.get_side_control_rects()
+	var left_rect: Rect2 = control_rects.get("left", Rect2())
+	var right_rect: Rect2 = control_rects.get("right", Rect2())
+	var drop_rect: Rect2 = control_rects.get("drop", Rect2())
+	var first_board_rect: Rect2 = main.board_view.get_board_rect()
+	var hud_rect: Rect2 = main.hud.get_global_rect()
+	_expect(main.hud.get_node("%LeftButton").text == "<", "Left control should use an arrow treatment.", failures)
+	_expect(main.hud.get_node("%RightButton").text == ">", "Right control should use an arrow treatment.", failures)
+	_expect(left_rect.end.x <= first_board_rect.position.x + 0.5, "Left control should sit entirely left of the playable board.", failures)
+	_expect(right_rect.position.x >= first_board_rect.end.x - 0.5, "Right control should sit entirely right of the playable board.", failures)
+	_expect(left_rect.position.x >= hud_rect.position.x and right_rect.end.x <= hud_rect.end.x + 0.5, "Side controls should remain within the viewport.", failures)
+	_expect(absf(drop_rect.get_center().x - first_board_rect.get_center().x) <= 8.0, "Drop control should remain centered beneath the board.", failures)
+	_expect(drop_rect.position.y > first_board_rect.end.y, "Drop control should remain beneath the board.", failures)
 	_expect(not main.hud.get_node("%RotateButton").visible, "Rotation control should be hidden.", failures)
 	_expect(main.hud.get_node("%RestartButton").text == "NEW RUN", "Restart control should use the idle NEW RUN label.", failures)
 	_expect(main.hud.get_new_run_hold_progress() == 0.0, "New Run hold progress should begin at zero.", failures)
@@ -55,11 +65,12 @@ func _run() -> void:
 		failures
 	)
 	var resized_slot: Rect2 = main.hud.get_board_layout_rect()
-	resized_slot.size.x = maxf(160.0, resized_slot.size.x - 48.0)
+	resized_slot.size.x = maxf(160.0, resized_slot.size.x - 180.0)
 	main.board_view.set_layout_rect(resized_slot)
 	var resized_board_rect: Rect2 = main.board_view.get_board_rect()
 	_expect(
-		resized_board_rect.size.x < initial_board_rect.size.x,
+		main.board_view._calculate_gameplay_metrics().get("available_rect", Rect2()) == resized_slot
+		and resized_board_rect.position != initial_board_rect.position,
 		"Board metrics should update when the layout rect changes.",
 		failures
 	)
@@ -146,20 +157,20 @@ func _run() -> void:
 	_expect(main.piece_generator.rng.state == generator_state_before_drop, "Undo should restore generator RNG state.", failures)
 
 	main.start_new_game()
-	main.completed_turns = 30
+	main.completed_turns = 15
 	main.current_piece = null
 	main.next_pieces.clear()
-	main._fill_preview_queue(30)
+	main._fill_preview_queue(15)
 	main._draw_next_piece()
 	var boundary_preview: Resource = main.next_pieces[0]
-	_expect(main.current_piece.generation_turn == 30, "Turn 30 should activate a first-phase piece.", failures)
-	_expect(boundary_preview.generation_turn == 31, "The first preview at turn 30 should already use turn 31 progression.", failures)
-	main.completed_turns = 31
+	_expect(main.current_piece.generation_turn == 15, "Turn 15 should activate a first-phase piece.", failures)
+	_expect(boundary_preview.generation_turn == 16, "The first preview at turn 15 should already use turn 16 progression.", failures)
+	main.completed_turns = 16
 	main._draw_next_piece()
 	_expect(main.current_piece == boundary_preview, "The phase-boundary preview must be the exact piece that becomes active.", failures)
 	_expect(
 		main.current_piece.cell_values.all(func(rank: int) -> bool: return [1, 2, 3].has(rank)),
-		"Turn 31 queue handoff should use only second-phase ranks.",
+		"Turn 16 queue handoff should use only second-phase ranks.",
 		failures
 	)
 

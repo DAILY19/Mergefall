@@ -4,11 +4,21 @@ Mergefall is a turn-based Godot puzzle game about positioning fixed-orientation 
 
 ## Controls
 
-- `LEFT`: move the active piece left
+- `<`: move the active piece left with the board-side control
 - `DROP`: commit the active piece
-- `RIGHT`: move the active piece right
+- `>`: move the active piece right with the board-side control
 
 Keyboard controls also work with Left Arrow, Right Arrow, Enter, and Down Arrow.
+
+## Spawn Progression
+
+Spawn values advance by completed turns only:
+
+- Turns 0-15: 2 at 60%, 4 at 40%
+- Turns 16-35: 2 at 40%, 4 at 50%, 8 at 10%
+- Turns 36-65: 2 at 20%, 4 at 55%, 8 at 25%
+- Turns 66-105: 4 at 45%, 8 at 45%, 16 at 10%
+- Turns 106+: 4 at 20%, 8 at 55%, 16 at 25%
 
 ## Godot Version
 

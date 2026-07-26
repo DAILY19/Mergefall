@@ -342,6 +342,9 @@ func _refresh_presentation() -> void:
 
 func _refresh_board_view() -> void:
 	board_view.set_layout_rect(hud.get_board_layout_rect())
+	if hud.has_method("set_gameplay_rects"):
+		var board_rect: Rect2 = board_view.get_board_rect()
+		hud.set_gameplay_rects(board_rect, board_view.get_drop_zone_rect(board_rect))
 	board_view.set_board_state(board_state)
 	board_view.set_active_piece(
 		current_piece,
@@ -372,7 +375,8 @@ func _refresh_hud_only() -> void:
 		"target_text": "Drop fixed pieces. Equal neighbors merge in deterministic waves.",
 		"subtitle_text": _subtitle_text(),
 		"current_piece_text": _current_piece_text(),
-		"can_undo": can_undo
+		"can_undo": can_undo,
+		"movement_disabled": current_piece == null or game_over or board_view.is_resolution_feedback_active()
 	})
 	_refresh_merge_preview()
 

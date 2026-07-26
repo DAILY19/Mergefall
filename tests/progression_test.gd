@@ -5,14 +5,14 @@ const Config = preload("res://resources/config/default_game_config.tres")
 
 const BOUNDARIES := [
 	[0, 0],
-	[30, 0],
-	[31, 1],
-	[70, 1],
-	[71, 2],
-	[120, 2],
-	[121, 3],
-	[180, 3],
-	[181, 4],
+	[15, 0],
+	[16, 1],
+	[35, 1],
+	[36, 2],
+	[65, 2],
+	[66, 3],
+	[105, 3],
+	[106, 4],
 	[500, 4],
 ]
 const EXPECTED_VALUES := [
@@ -23,11 +23,11 @@ const EXPECTED_VALUES := [
 	[4, 8, 16],
 ]
 const EXPECTED_WEIGHTS := [
-	[70, 30],
-	[55, 40, 5],
-	[35, 50, 15],
-	[55, 35, 10],
-	[30, 50, 20],
+	[60, 40],
+	[40, 50, 10],
+	[20, 55, 25],
+	[45, 45, 10],
+	[20, 55, 25],
 ]
 
 
@@ -89,7 +89,7 @@ static func _test_seeded_determinism(failures: PackedStringArray) -> void:
 	var second = PieceGeneratorScript.new()
 	first.rng.seed = 424242
 	second.rng.seed = 424242
-	var turns := [0, 1, 30, 31, 32, 70, 71, 120, 121, 180, 181, 250]
+	var turns := [0, 1, 15, 16, 35, 36, 65, 66, 105, 106, 250]
 	var first_sequence := []
 	var second_sequence := []
 	for turn in turns:
@@ -112,13 +112,13 @@ static func _test_weighted_first_draw(failures: PackedStringArray) -> void:
 	var counts := {1: 0, 2: 0, 3: 0}
 	var sample_count := 20000
 	for _index in sample_count:
-		var piece = generator.next_piece(Config.piece_definitions, Config.spawn_progression, 71)
+		var piece = generator.next_piece(Config.piece_definitions, Config.spawn_progression, 36)
 		var first_rank: int = piece.selected_value_ranks[0]
 		counts[first_rank] = int(counts.get(first_rank, 0)) + 1
-	var expected := {1: 0.35, 2: 0.50, 3: 0.15}
+	var expected := {1: 0.20, 2: 0.55, 3: 0.25}
 	for rank in [1, 2, 3]:
 		var observed := float(counts[rank]) / sample_count
-		_expect(absf(observed - expected[rank]) < 0.025, "Turn 71 first weighted draw for rank %d should stay within tolerance (observed %.3f)." % [rank, observed], failures)
+		_expect(absf(observed - expected[rank]) < 0.025, "Turn 36 first weighted draw for rank %d should stay within tolerance (observed %.3f)." % [rank, observed], failures)
 
 
 static func _has_no_adjacent_equal_values(piece: Resource) -> bool:

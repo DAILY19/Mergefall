@@ -80,6 +80,7 @@ extends Control
 @onready var _top_panel: PanelContainer = %TopPanel
 @onready var _board_panel: PanelContainer = %BoardPanel
 @onready var _bottom_panel: PanelContainer = %BottomPanel
+@onready var _board_stage: Control = %BoardStage
 @onready var _top_stack: VBoxContainer = %TopStack
 @onready var _bottom_stack: VBoxContainer = %BottomStack
 @onready var _title_label: Label = %TitleLabel
@@ -112,9 +113,13 @@ var _restart_action := Callable()
 var _new_run_hold_active := false
 var _new_run_hold_elapsed := 0.0
 var _new_run_hold_completed := false
+var _board_rect_global := Rect2()
 
 const MERGE_PREVIEW_FILL := 18.0
 const NEW_RUN_HOLD_DURATION := 1.0
+const SIDE_BUTTON_SIZE := Vector2(44, 72)
+const SIDE_BUTTON_GAP := 6.0
+const SIDE_BUTTON_BOARD_Y_RATIO := 0.62
 
 
 func _ready() -> void:
@@ -152,9 +157,25 @@ func update_status(data: Dictionary) -> void:
 	_subtitle_label.text = data.get("subtitle_text", "")
 	_current_piece_label.text = data.get("current_piece_text", "")
 	_undo_button.disabled = not data.get("can_undo", false)
-	_left_button.text = "LEFT"
 	_drop_button.text = "DROP"
-	_right_button.text = "RIGHT"
+	var movement_disabled: bool = bool(data.get("movement_disabled", false))
+	_left_button.disabled = movement_disabled
+	_right_button.disabled = movement_disabled
+
+
+func set_gameplay_rects(board_rect_global: Rect2, _drop_zone_rect_global: Rect2 = Rect2()) -> void:
+	_board_rect_global = board_rect_global
+	_layout_side_controls()
+
+
+func get_side_control_rects() -> Dictionary:
+	if not is_node_ready():
+		return {}
+	return {
+		"left": _left_button.get_global_rect(),
+		"right": _right_button.get_global_rect(),
+		"drop": _drop_button.get_global_rect()
+	}
 
 
 func set_merge_preview(active: bool) -> void:
@@ -282,8 +303,12 @@ func _apply_theme() -> void:
 	_apply_stat_card(_score_label)
 	_apply_stat_card(_best_label)
 	_apply_stat_card(_moves_label)
-	_apply_button_style(_left_button, false)
-	_apply_button_style(_right_button, false)
+	_apply_side_button_style(_left_button)
+	_apply_side_button_style(_right_button)
+	_left_button.text = "<"
+	_right_button.text = ">"
+	_left_button.accessibility_name = "Move left"
+	_right_button.accessibility_name = "Move right"
 	_rotate_button.visible = false
 	_apply_button_style(_drop_button, true)
 	_apply_button_style(_undo_button, false)
@@ -297,6 +322,7 @@ func _apply_theme() -> void:
 	_preview_strip.empty_card_color = Color(0.92, 0.86, 0.78, 0.34)
 	_preview_strip.title_text = "Next up"
 	_preview_strip.queue_redraw()
+	_layout_side_controls()
 
 
 func _apply_charge_bar_style() -> void:
@@ -394,6 +420,21 @@ func _apply_button_style(button: Button, emphasize: bool) -> void:
 	button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.85, 0.82, 0.77, 0.92)))
 
 
+func _apply_side_button_style(button: Button) -> void:
+	button.custom_minimum_size = SIDE_BUTTON_SIZE
+	button.focus_mode = Control.FOCUS_ALL
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
+	button.add_theme_font_override("font", body_font if body_font != null else ThemeDB.fallback_font)
+	button.add_theme_font_size_override("font_size", 28)
+	button.add_theme_color_override("font_color", Color("fffaf2"))
+	button.add_theme_color_override("font_disabled_color", Color(0.62, 0.56, 0.49, 1.0))
+	button.add_theme_stylebox_override("normal", _make_button_style(accent_color, 9))
+	button.add_theme_stylebox_override("hover", _make_button_style(accent_color.lightened(0.06), 9))
+	button.add_theme_stylebox_override("pressed", _make_button_style(accent_color.darkened(0.12), 9))
+	button.add_theme_stylebox_override("focus", _make_button_style(accent_color.lightened(0.08), 9))
+	button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.82, 0.78, 0.72, 0.9), 9))
+
+
 func _apply_new_run_progress_style() -> void:
 	var background := StyleBoxFlat.new()
 	background.bg_color = Color.TRANSPARENT
@@ -404,7 +445,7 @@ func _apply_new_run_progress_style() -> void:
 	_restart_progress_bar.add_theme_stylebox_override("fill", fill)
 
 
-func _make_button_style(fill_color: Color) -> StyleBoxFlat:
+func _make_button_style(fill_color: Color, radius: int = 14) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
 	style.border_color = panel_border
@@ -412,12 +453,33 @@ func _make_button_style(fill_color: Color) -> StyleBoxFlat:
 	style.border_width_top = 1
 	style.border_width_right = 1
 	style.border_width_bottom = 1
-	style.set_corner_radius_all(14)
+	style.set_corner_radius_all(radius)
 	style.content_margin_left = 10
 	style.content_margin_top = 8
 	style.content_margin_right = 10
 	style.content_margin_bottom = 8
 	return style
+
+
+func _layout_side_controls() -> void:
+	if not is_node_ready() or _board_rect_global.size == Vector2.ZERO:
+		return
+	var stage_rect := _board_stage.get_global_rect()
+	var board_in_stage := Rect2(_board_rect_global.position - stage_rect.position, _board_rect_global.size)
+	var button_size := SIDE_BUTTON_SIZE
+	var usable_left := maxf(0.0, board_in_stage.position.x)
+	var usable_right := maxf(0.0, stage_rect.size.x - board_in_stage.end.x)
+	button_size.x = minf(button_size.x, maxf(36.0, minf(usable_left, usable_right) - SIDE_BUTTON_GAP))
+	button_size.y = minf(button_size.y, maxf(52.0, board_in_stage.size.y * 0.2))
+	_left_button.size = button_size
+	_right_button.size = button_size
+	var y := clampf(
+		board_in_stage.position.y + board_in_stage.size.y * SIDE_BUTTON_BOARD_Y_RATIO - button_size.y * 0.5,
+		0.0,
+		maxf(0.0, stage_rect.size.y - button_size.y)
+	)
+	_left_button.position = Vector2(maxf(0.0, board_in_stage.position.x - SIDE_BUTTON_GAP - button_size.x), y)
+	_right_button.position = Vector2(minf(stage_rect.size.x - button_size.x, board_in_stage.end.x + SIDE_BUTTON_GAP), y)
 
 
 func _process(delta: float) -> void:

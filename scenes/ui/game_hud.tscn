@@ -139,20 +139,46 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="BoardMargin" type="MarginContainer" parent="SafeArea/AppStack/BoardPanel"]
+[node name="BoardStage" type="Control" parent="SafeArea/AppStack/BoardPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="BoardMargin" type="MarginContainer" parent="SafeArea/AppStack/BoardPanel/BoardStage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 0
 theme_override_constants/margin_top = 0
 theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 0
 
-[node name="BoardSlot" type="Control" parent="SafeArea/AppStack/BoardPanel/BoardMargin"]
+[node name="BoardSlot" type="Control" parent="SafeArea/AppStack/BoardPanel/BoardStage/BoardMargin"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
+
+[node name="LeftButton" type="Button" parent="SafeArea/AppStack/BoardPanel/BoardStage"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 64)
+layout_mode = 1
+text = "<"
+tooltip_text = "Move left"
+
+[node name="RightButton" type="Button" parent="SafeArea/AppStack/BoardPanel/BoardStage"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 64)
+layout_mode = 1
+text = ">"
+tooltip_text = "Move right"
 
 [node name="BottomPanel" type="PanelContainer" parent="SafeArea/AppStack"]
 unique_name_in_owner = true
@@ -193,30 +219,16 @@ layout_mode = 2
 max_value = 8.0
 show_percentage = false
 
-[node name="ButtonsRow" type="GridContainer" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
+[node name="ButtonsRow" type="HBoxContainer" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
 layout_mode = 2
-columns = 3
-
-[node name="LeftButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/ButtonsRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Left"
+alignment = 1
 
 [node name="DropButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/ButtonsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(128, 44)
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 4
 text = "Drop"
-
-[node name="RightButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack/ButtonsRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Right"
 
 [node name="RotateButton" type="Button" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
 unique_name_in_owner = true
