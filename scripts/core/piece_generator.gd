@@ -3,6 +3,7 @@ extends RefCounted
 
 const FAMILY_ORDER := ["I", "O", "T", "S", "Z", "J", "L"]
 const DEFAULT_SEED := 0x4d4552474546414c
+const ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 
 var rng := RandomNumberGenerator.new()
 var _catalog_source: Array[Resource] = []
@@ -37,8 +38,9 @@ func next_piece(definitions: Array[Resource], progression: Resource, completed_t
 
 func get_catalog(definitions: Array[Resource]) -> Array[Resource]:
 	var pieces: Array[Resource] = []
+	var catalog: Dictionary = _build_catalog(definitions)
 	for family in FAMILY_ORDER:
-		for piece in _build_catalog(definitions).get(family, []):
+		for piece in catalog.get(family, []):
 			pieces.append(piece)
 	return pieces
 
@@ -109,8 +111,8 @@ func _values_for_cells(cells: Array[Vector2i], pair: Array[int]) -> Array[int]:
 
 
 func _has_valid_values(piece: Resource) -> bool:
-	var cells: Array = piece.get_rotated_cells(0)
-	var values: Array = piece.get_rotated_values(0)
+	var cells: Array[Vector2i] = piece.get_rotated_cells(0)
+	var values: Array[int] = piece.get_rotated_values(0)
 	for first_index in cells.size():
 		for second_index in range(first_index + 1, cells.size()):
 			if values[first_index] == values[second_index] and _is_orthogonal(cells[first_index], cells[second_index]):
@@ -164,7 +166,7 @@ func _is_connected(cells: Array[Vector2i]) -> bool:
 	remaining.erase(cells[0])
 	while not frontier.is_empty():
 		var cell: Vector2i = frontier.pop_back()
-		for neighbor in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		for neighbor in ORTHOGONAL_DIRECTIONS:
 			var next: Vector2i = cell + neighbor
 			if remaining.has(next):
 				remaining.erase(next)

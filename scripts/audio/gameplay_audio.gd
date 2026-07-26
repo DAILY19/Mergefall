@@ -20,6 +20,8 @@ var impact_player := AudioStreamPlayer.new()
 var result_player := AudioStreamPlayer.new()
 var last_blocked_msec := -BLOCKED_COOLDOWN_MSEC
 var play_versions := {}
+var stream_cache: Dictionary = {}
+var active_tweens: Array[Tween] = []
 
 
 func _ready() -> void:
@@ -34,10 +36,15 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	for tween in active_tweens:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	active_tweens.clear()
 	for player in [input_player, motion_player, impact_player, result_player]:
 		player.stop()
 		player.stream = null
 	play_versions.clear()
+	stream_cache.clear()
 
 
 func play_move(direction: int) -> void:
@@ -77,7 +84,9 @@ func play_game_over() -> void:
 
 
 func _stream(path: String) -> AudioStream:
-	return load(path) as AudioStream
+	if not stream_cache.has(path):
+		stream_cache[path] = load(path) as AudioStream
+	return stream_cache[path]
 
 
 func _play(
@@ -101,14 +110,22 @@ func _play(
 	if hold_sec <= 0.0:
 		return
 	var hold_tween := create_tween()
+	active_tweens.append(hold_tween)
 	hold_tween.tween_interval(hold_sec)
 	hold_tween.tween_callback(func() -> void:
 		if int(play_versions.get(player_id, 0)) != version:
 			return
 		var fade_tween := create_tween()
+		active_tweens.append(fade_tween)
 		fade_tween.tween_property(player, "volume_db", -60.0, fade_sec)
 		fade_tween.tween_callback(func() -> void:
 			if int(play_versions.get(player_id, 0)) == version:
 				player.stop()
 		)
+		fade_tween.finished.connect(func() -> void:
+			active_tweens.erase(fade_tween)
+		)
+	)
+	hold_tween.finished.connect(func() -> void:
+		active_tweens.erase(hold_tween)
 	)

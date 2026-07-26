@@ -484,13 +484,6 @@ func _is_blocked_feedback_active() -> bool:
 	return Time.get_ticks_msec() < blocked_feedback_until_msec
 
 
-func _show_merge_feedback(steps: Array) -> void:
-	merge_feedback_steps.clear()
-	for step in steps:
-		merge_feedback_steps.append(step.duplicate(true))
-	merge_feedback_until_msec = Time.get_ticks_msec() + int(config.merge_flash_duration_sec * 1000.0)
-
-
 func _is_merge_feedback_active() -> bool:
 	return Time.get_ticks_msec() < merge_feedback_until_msec and not merge_feedback_steps.is_empty()
 

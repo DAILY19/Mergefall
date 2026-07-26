@@ -10,6 +10,7 @@ const BoardStateScript = preload("res://scripts/core/board_state.gd")
 @export var config: Resource:
 	set(value):
 		config = value
+		_clear_style_caches()
 		_mark_layout_dirty()
 		queue_redraw()
 
@@ -34,6 +35,7 @@ const BoardStateScript = preload("res://scripts/core/board_state.gd")
 @export_range(0, 120, 1) var cell_corner_radius := 16:
 	set(value):
 		cell_corner_radius = value
+		_clear_style_caches()
 		queue_redraw()
 
 @export_range(3, 5, 1) var drop_zone_rows := 4:
@@ -101,11 +103,7 @@ var _layout_dirty := true
 var _layout_metrics := {}
 var _active_motion_offset := Vector2.ZERO
 var _rotation_snap_ratio := 0.0
-var _drop_feedback_from: Array[Vector2i] = []
-var _drop_feedback_to: Array[Vector2i] = []
-var _drop_feedback_ratio := 0.0
 var _motion_tween: Tween
-var _drop_tween: Tween
 var _resolution_board: BoardState
 var _resolution_from: Array[Vector2i] = []
 var _resolution_to: Array[Vector2i] = []
@@ -117,6 +115,7 @@ var _resolution_event_boards: Array = []
 var _resolution_progress := 1.0
 var _resolution_duration := 1.0
 var _resolution_tween: Tween
+var _cell_style_cache: Dictionary = {}
 
 const RESOLUTION_FALL_SEC := 0.28
 const RESOLUTION_CONTACT_SEC := 0.14
@@ -165,21 +164,6 @@ func play_rotation_feedback() -> void:
 	_active_motion_offset = Vector2.ZERO
 	_rotation_snap_ratio = 1.0
 	_restart_motion_tween(0.13, Tween.TRANS_BACK, Tween.EASE_OUT)
-
-
-func play_drop_feedback(from_cells: Array[Vector2i], to_cells: Array[Vector2i]) -> void:
-	_drop_feedback_from = _typed_vector2i_array(from_cells)
-	_drop_feedback_to = _typed_vector2i_array(to_cells)
-	_drop_feedback_ratio = 1.0
-	if _drop_tween != null and _drop_tween.is_valid():
-		_drop_tween.kill()
-	_drop_tween = create_tween()
-	_drop_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_drop_tween.tween_method(_set_drop_feedback_ratio, 1.0, 0.0, 0.28)
-	_drop_tween.finished.connect(func() -> void:
-		_drop_feedback_from.clear()
-		_drop_feedback_to.clear()
-	)
 
 
 func play_resolution_feedback(
@@ -327,9 +311,6 @@ func _draw() -> void:
 			if _board_state.is_inside(anchor):
 				_draw_merge_flash(get_cell_rect(board_rect, anchor), true)
 				_redraw_cell_value(board_rect, anchor)
-
-	if _drop_feedback_ratio > 0.0:
-		_draw_drop_commitment(board_rect)
 
 	if _game_over or _current_piece == null:
 		return
@@ -592,29 +573,6 @@ func _draw_merge_flash(cell_rect: Rect2, is_anchor: bool) -> void:
 		)
 
 
-func _draw_drop_commitment(board_rect: Rect2) -> void:
-	var count := mini(_drop_feedback_from.size(), _drop_feedback_to.size())
-	for index in count:
-		var from_center := get_cell_rect(board_rect, _drop_feedback_from[index]).get_center()
-		var to_center := get_cell_rect(board_rect, _drop_feedback_to[index]).get_center()
-		var trail_color: Color = config.active_piece_valid_color
-		trail_color.a = 0.18 * _drop_feedback_ratio
-		draw_line(from_center, to_center, trail_color, 3.0, true)
-		var landing_rect := get_cell_rect(board_rect, _drop_feedback_to[index]).grow(-3.0)
-		var landing_color: Color = config.active_piece_outline_color
-		landing_color.a = 0.34 * _drop_feedback_ratio
-		draw_arc(
-			landing_rect.get_center(),
-			landing_rect.size.x * (0.42 + 0.08 * (1.0 - _drop_feedback_ratio)),
-			0.0,
-			TAU,
-			20,
-			landing_color,
-			2.0,
-			true
-		)
-
-
 func _draw_resolution_feedback(board_rect: Rect2) -> void:
 	var elapsed := _resolution_elapsed()
 	var segment := _resolution_segment_at(elapsed)
@@ -871,11 +829,6 @@ func _set_rotation_snap_ratio(ratio: float) -> void:
 	queue_redraw()
 
 
-func _set_drop_feedback_ratio(ratio: float) -> void:
-	_drop_feedback_ratio = ratio
-	queue_redraw()
-
-
 func _set_resolution_progress(progress: float) -> void:
 	_resolution_progress = progress
 	queue_redraw()
@@ -988,14 +941,22 @@ func _redraw_cell_value(board_rect: Rect2, cell_pos: Vector2i) -> void:
 
 
 func _make_cell_style(value: int) -> StyleBoxFlat:
+	if _cell_style_cache.has(value):
+		return _cell_style_cache[value]
 	var is_filled := value > 0
 	var fill_color: Color = _tile_fill_color(value) if is_filled else config.empty_cell_color
-	return _make_fill_style(
+	var style := _make_fill_style(
 		fill_color,
 		fill_color.darkened(0.28) if is_filled else Color(0.42, 0.32, 0.22, 0.34),
 		2,
 		mini(cell_corner_radius, 8) if is_filled else cell_corner_radius
 	)
+	_cell_style_cache[value] = style
+	return style
+
+
+func _clear_style_caches() -> void:
+	_cell_style_cache.clear()
 
 
 func _make_preview_style(is_valid: bool) -> StyleBoxFlat:

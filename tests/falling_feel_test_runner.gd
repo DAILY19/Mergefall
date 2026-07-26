@@ -341,13 +341,20 @@ func _run() -> void:
 
 	for failure in failures:
 		push_error(failure)
+	main.set_process(false)
+	main.hud.set_process(false)
+	main.board_view.cancel_resolution_feedback()
+	main.current_piece = null
+	main.next_pieces.clear()
+	main.previous_piece = null
+	main.previous_next_pieces.clear()
+	main.config = null
 	root.remove_child(main)
-	main.free()
+	main.queue_free()
 	main = null
 	scene = null
-	await process_frame
-	await process_frame
-	await process_frame
+	for _frame in 6:
+		await process_frame
 	if failures.is_empty():
 		print("Gameplay integration tests passed.")
 	quit(0 if failures.is_empty() else 1)

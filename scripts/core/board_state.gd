@@ -3,7 +3,9 @@ extends RefCounted
 
 var width := 0
 var height := 0
-var cells: Array = []
+var cells: Array[Array] = []
+
+const COMPONENT_DIRECTIONS: Array[Vector2i] = [Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP]
 
 
 func setup(board_width: int, board_height: int) -> void:
@@ -42,7 +44,7 @@ func set_value(position: Vector2i, value: int) -> void:
 
 
 func can_place(cells_to_place: Array) -> bool:
-	for cell in cells_to_place:
+	for cell: Vector2i in cells_to_place:
 		if not is_inside(cell):
 			return false
 		if get_value(cell) != 0:
@@ -53,7 +55,7 @@ func can_place(cells_to_place: Array) -> bool:
 ## Staging permits cells above the visible board. Horizontal overflow, cells below
 ## the floor, and overlap with visible settled cells are still illegal.
 func can_stage(cells_to_stage: Array) -> bool:
-	for cell in cells_to_stage:
+	for cell: Vector2i in cells_to_stage:
 		if cell.x < 0 or cell.x >= width or cell.y >= height:
 			return false
 		if cell.y >= 0 and get_value(cell) != 0:
@@ -109,7 +111,7 @@ func get_landing_cells(cells_to_drop: Array, values: Array = []) -> Array[Vector
 
 ## Runs the exact settlement rules used by settle_cells without mutating this board.
 func project_settlement(cells_to_drop: Array, values: Array = []) -> Dictionary:
-	var projection = duplicate_state()
+	var projection := duplicate_state()
 	var result: Dictionary = projection.settle_cells(cells_to_drop, values, 0)
 	var first_wave_merge_count := 0
 	for event in result.get("events", []):
@@ -136,7 +138,7 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> D
 	if cells_to_drop.is_empty() or not can_stage(cells_to_drop):
 		return result
 
-	var original_cells := []
+	var original_cells: Array[Array] = []
 	for row in cells:
 		original_cells.append(row.duplicate())
 
@@ -221,7 +223,7 @@ func clear_lowest_occupied_row() -> Dictionary:
 
 
 func _can_occupy_drop_offset(cells_to_drop: Array, y_offset: int) -> bool:
-	for cell in cells_to_drop:
+	for cell: Vector2i in cells_to_drop:
 		var position: Vector2i = cell + Vector2i(0, y_offset)
 		if position.x < 0 or position.x >= width or position.y >= height:
 			return false
@@ -261,7 +263,7 @@ func _gravity_pass() -> Dictionary:
 
 func _merge_wave(wave_index: int) -> Dictionary:
 	var result := {"score": 0, "merged": false, "steps": []}
-	var pairs := _find_merge_pairs()
+	var pairs: Array[Array] = _find_merge_pairs()
 	if pairs.is_empty():
 		return result
 	var writes: Array[Dictionary] = []
@@ -288,9 +290,9 @@ func _merge_wave(wave_index: int) -> Dictionary:
 ## Pairing is component-first to avoid dictionary-order behavior: equal orthogonal
 ## regions are ordered bottom-up, center-out, then left-to-right; each cell then
 ## claims its highest-priority available equal neighbor.
-func _find_merge_pairs() -> Array:
+func _find_merge_pairs() -> Array[Array]:
 	var visited := {}
-	var pairs := []
+	var pairs: Array[Array] = []
 	for y in height:
 		for x in width:
 			var start := Vector2i(x, y)
@@ -303,10 +305,10 @@ func _find_merge_pairs() -> Array:
 				return _cell_priority_less(a, b)
 			)
 			var used := {}
-			for cell in component:
+			for cell: Vector2i in component:
 				if used.has(cell):
 					continue
-				for neighbor in _ordered_equal_neighbors(cell, used):
+				for neighbor: Vector2i in _ordered_equal_neighbors(cell, used):
 					used[cell] = true
 					used[neighbor] = true
 					pairs.append([cell, neighbor])
@@ -324,7 +326,7 @@ func _equal_component(start: Vector2i, visited: Dictionary) -> Array[Vector2i]:
 		var cell: Vector2i = queue[queue_index]
 		queue_index += 1
 		component.append(cell)
-		for direction in [Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP]:
+		for direction in COMPONENT_DIRECTIONS:
 			var neighbor: Vector2i = cell + direction
 			if not is_inside(neighbor) or visited.has(neighbor) or get_value(neighbor) != value:
 				continue
@@ -420,14 +422,14 @@ func has_any_moves(piece_definitions: Array) -> bool:
 	for piece in piece_definitions:
 		if piece == null:
 			continue
-		var rotated = piece.get_rotated_cells(0)
-		var values = piece.get_rotated_values(0)
-		var bounds = _bounds(rotated)
+		var rotated: Array[Vector2i] = piece.get_rotated_cells(0)
+		var values: Array[int] = piece.get_rotated_values(0)
+		var bounds: Rect2i = _bounds(rotated)
 		var stage_y: int = -bounds.position.y - bounds.size.y - 1
 		var min_anchor_x: int = -bounds.position.x
 		var max_anchor_x: int = width - bounds.position.x - bounds.size.x
 		for x in range(min_anchor_x, max_anchor_x + 1):
-			var anchor = Vector2i(x, stage_y)
+			var anchor := Vector2i(x, stage_y)
 			if can_settle(_translated(rotated, anchor), values):
 				return true
 	return false
@@ -437,14 +439,14 @@ func resolve_merges(_min_group_size: int, _score_per_rank: int) -> Dictionary:
 	return _merge_wave(1)
 
 
-func _translated(source: Array, anchor: Vector2i) -> Array:
-	var translated: Array = []
+func _translated(source: Array[Vector2i], anchor: Vector2i) -> Array[Vector2i]:
+	var translated: Array[Vector2i] = []
 	for cell in source:
 		translated.append(cell + anchor)
 	return translated
 
 
-func _bounds(source: Array) -> Rect2i:
+func _bounds(source: Array[Vector2i]) -> Rect2i:
 	var min_x: int = source[0].x
 	var min_y: int = source[0].y
 	var max_x: int = source[0].x
