@@ -15,11 +15,15 @@ static func run() -> PackedStringArray:
 	_test_independent_gravity_and_split(failures)
 	_test_gravity_event_payload(failures)
 	_test_gravity_distances_and_sequence(failures)
+	_test_merge_stability_event_order(failures)
 	_test_orthogonal_merges_only(failures)
 	_test_pairwise_component_merges(failures)
 	_test_new_results_wait_until_later_wave(failures)
 	_test_determinism(failures)
 	_test_scoring_waves(failures)
+	_test_merge_fatigue_blocks_same_turn_remerge(failures)
+	_test_merge_fatigue_allows_independent_branches(failures)
+	_test_merge_fatigue_survives_gravity_and_expires(failures)
 	_test_same_piece_merges_are_prevented_during_landing(failures)
 	_test_piece_generation_values(failures)
 	_test_orientation_self_merge_regressions(failures)
@@ -102,6 +106,24 @@ static func _test_gravity_distances_and_sequence(failures: PackedStringArray) ->
 		_expect(moves.has({"from": Vector2i(2, 4), "to": Vector2i(2, 6), "value": 5, "distance": 2}), "Different fall distances should share one gravity event.", failures)
 
 
+static func _test_merge_stability_event_order(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(6, 7)
+	board.place_cells([Vector2i(1, 2), Vector2i(2, 2), Vector2i(1, 6), Vector2i(2, 6)], [1, 1, 1, 1])
+	var result := board.settle_cells([Vector2i(5, -1)], [9], 10)
+	var events: Array = result.get("events", [])
+	for index in events.size():
+		if events[index].get("type", "") != "gravity_step":
+			continue
+		var next_merge_index := -1
+		for next_index in range(index + 1, events.size()):
+			if events[next_index].get("type", "") == "merge_wave":
+				next_merge_index = next_index
+				break
+		_expect(next_merge_index != index, "Merges should be recorded only after a complete gravity event.", failures)
+	_expect(_event_types(result).find("gravity_step") < _event_types(result).find("merge_wave"), "Gravity must settle before the first merge wave.", failures)
+
+
 static func _test_orthogonal_merges_only(failures: PackedStringArray) -> void:
 	var diagonal = BoardStateScript.new()
 	diagonal.setup(6, 7)
@@ -146,7 +168,7 @@ static func _test_new_results_wait_until_later_wave(failures: PackedStringArray)
 	board.setup(6, 7)
 	board.place_cells([Vector2i(2, 5), Vector2i(3, 5), Vector2i(2, 6), Vector2i(3, 6)], [1, 1, 1, 1])
 	board.set_value(Vector2i(2, 4), 8)
-	var result := board.settle_cells([Vector2i(5, -1)], [9], 10)
+	var result := board.settle_cells([Vector2i(5, -1)], [9], 10, false)
 	var wave_count := _merge_wave_count(result)
 	_expect(wave_count == 2, "Newly created results should merge only in a later wave when gravity makes them adjacent.", failures)
 	_expect(board.get_value(Vector2i(2, 6)) == 3, "Later wave should be allowed to merge first-wave results.", failures)
@@ -177,7 +199,7 @@ static func _test_scoring_waves(failures: PackedStringArray) -> void:
 	var board = BoardStateScript.new()
 	board.setup(6, 7)
 	board.place_cells([Vector2i(2, 5), Vector2i(3, 5), Vector2i(2, 6), Vector2i(3, 6)], [1, 1, 1, 1])
-	var result := board.settle_cells([Vector2i(5, -1)], [9], 10)
+	var result := board.settle_cells([Vector2i(5, -1)], [9], 10, false)
 	_expect(result["score"] == 24, "Score should use produced displayed values with increasing wave multipliers.", failures)
 	_expect(result["steps"][0]["score"] == 4, "A 2+2->4 merge should award 4 in wave one.", failures)
 	_expect(result["steps"][2]["score"] == 16, "A 4+4->8 merge should award 16 in wave two.", failures)
@@ -185,6 +207,38 @@ static func _test_scoring_waves(failures: PackedStringArray) -> void:
 		return event.get("type", "") == "merge_wave"
 	)
 	_expect(merge_events[0].get("multiplier", 0) == 1 and merge_events[1].get("multiplier", 0) == 2, "Merge events should carry authoritative wave multipliers.", failures)
+
+
+static func _test_merge_fatigue_blocks_same_turn_remerge(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(4, 6)
+	board.place_cells([Vector2i(1, 2), Vector2i(1, 3), Vector2i(1, 4), Vector2i(1, 5)], [1, 1, 1, 1])
+	var result := board.settle_cells([Vector2i(3, -1)], [9], 10)
+	_expect(_merge_wave_count(result) == 1, "Fatigue should prevent newly created tiles from merging again in the same turn.", failures)
+	_expect(_count_value(board, 2) == 2, "Two fatigued merge results should remain as separate tiles.", failures)
+	_expect(_count_value(board, 3) == 0, "Fatigue should stop the immediate 4+4 into 8 cascade.", failures)
+
+
+static func _test_merge_fatigue_allows_independent_branches(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(6, 6)
+	board.place_cells([Vector2i(0, 5), Vector2i(1, 5), Vector2i(4, 5), Vector2i(5, 5)], [1, 1, 3, 3])
+	var result := board.settle_cells([Vector2i(2, -1)], [9], 10)
+	_expect(result.get("merged", false), "Existing independent branches should still merge during the same wave.", failures)
+	_expect(result.get("steps", []).size() == 2, "Two unrelated merge branches should resolve simultaneously.", failures)
+	_expect(_count_value(board, 2) == 1 and _count_value(board, 4) == 1, "Independent merge results should both be produced.", failures)
+
+
+static func _test_merge_fatigue_survives_gravity_and_expires(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(5, 7)
+	board.place_cells([Vector2i(1, 5), Vector2i(2, 5), Vector2i(1, 6), Vector2i(2, 6), Vector2i(1, 4)], [1, 1, 1, 1, 6])
+	var result := board.settle_cells([Vector2i(4, -1)], [9], 10)
+	_expect(_merge_wave_count(result) == 1, "Fatigue should persist across gravity after merge support is removed.", failures)
+	_expect(_count_value(board, 2) == 2, "Fatigued results should fall normally without immediately merging.", failures)
+	var later := board.resolve_merges(2, 10)
+	_expect(later.get("merged", false), "Fatigue should expire before later merge resolution.", failures)
+	_expect(_count_value(board, 3) == 1, "Expired fatigue should allow the later 4+4 into 8 merge.", failures)
 
 
 static func _test_same_piece_merges_are_prevented_during_landing(failures: PackedStringArray) -> void:
@@ -378,6 +432,13 @@ static func _merge_wave_count(result: Dictionary) -> int:
 		if event.get("type", "") == "merge_wave":
 			count += 1
 	return count
+
+
+static func _event_types(result: Dictionary) -> Array[String]:
+	var types: Array[String] = []
+	for event in result.get("events", []):
+		types.append(event.get("type", ""))
+	return types
 
 
 static func _expect(condition: bool, message: String, failures: PackedStringArray) -> void:

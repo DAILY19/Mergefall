@@ -17,6 +17,7 @@ const BOARD_HEIGHT := 10
 @export_range(2, 6, 1) var min_merge_group := 2
 @export_range(1, 10, 1) var score_per_rank := 10
 @export_range(2, 20, 1) var merge_charge_threshold := 8
+@export var merge_fatigue_enabled := true
 @export var piece_definitions: Array[Resource] = []
 @export_range(1, 5, 1) var preview_piece_count := 3
 @export var spawn_progression: Resource

@@ -248,7 +248,7 @@ func _confirm_drop() -> void:
 		return
 	var from_cells := _current_cells()
 	var values: Array = current_piece.get_rotated_values(current_rotation)
-	var projection: Dictionary = board_state.project_settlement(from_cells, values)
+	var projection: Dictionary = board_state.project_settlement(from_cells, values, config.merge_fatigue_enabled)
 	if not projection.get("legal", false):
 		_show_blocked_feedback()
 		_refresh_presentation()
@@ -271,7 +271,7 @@ func _try_rotate(direction: int) -> void:
 func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), placement_values: Array = []) -> void:
 	if placement_values.is_empty() and current_piece != null:
 		placement_values = current_piece.get_rotated_values(current_rotation)
-	if not board_state.can_settle(placement_cells, placement_values):
+	if not board_state.can_settle(placement_cells, placement_values, config.merge_fatigue_enabled):
 		_show_blocked_feedback()
 		_refresh_presentation()
 		return
@@ -289,7 +289,8 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 	var settlement: Dictionary = board_state.settle_cells(
 		placement_cells,
 		placement_values,
-		config.score_per_rank
+		config.score_per_rank,
+		config.merge_fatigue_enabled
 	)
 	var earned_score: int = int(settlement["score"])
 	resolution_score_target = score + earned_score
@@ -400,7 +401,8 @@ func _refresh_merge_preview() -> void:
 		return
 	var projection: Dictionary = board_state.project_settlement(
 		_current_cells(),
-		current_piece.get_rotated_values(current_rotation)
+		current_piece.get_rotated_values(current_rotation),
+		config.merge_fatigue_enabled
 	)
 	hud.set_merge_preview(
 		projection.get("legal", false)

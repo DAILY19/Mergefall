@@ -5,6 +5,7 @@ var width := 0
 var height := 0
 var cells: Array[Array] = []
 var cell_sources: Array[Array] = []
+var cell_fatigues: Array[Array] = []
 
 const COMPONENT_DIRECTIONS: Array[Vector2i] = [Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP]
 
@@ -14,14 +15,18 @@ func setup(board_width: int, board_height: int) -> void:
 	height = board_height
 	cells.clear()
 	cell_sources.clear()
+	cell_fatigues.clear()
 	for y in height:
 		var row: Array[int] = []
 		var source_row: Array[int] = []
+		var fatigue_row: Array[bool] = []
 		for _x in width:
 			row.append(0)
 			source_row.append(0)
+			fatigue_row.append(false)
 		cells.append(row)
 		cell_sources.append(source_row)
+		cell_fatigues.append(fatigue_row)
 
 
 func duplicate_state() -> BoardState:
@@ -32,6 +37,8 @@ func duplicate_state() -> BoardState:
 		clone.cells.append(row.duplicate())
 	for source_row in cell_sources:
 		clone.cell_sources.append(source_row.duplicate())
+	for fatigue_row in cell_fatigues:
+		clone.cell_fatigues.append(fatigue_row.duplicate())
 	return clone
 
 
@@ -50,6 +57,8 @@ func set_value(position: Vector2i, value: int) -> void:
 		cells[position.y][position.x] = value
 		if cell_sources.size() == height:
 			cell_sources[position.y][position.x] = 0
+		if cell_fatigues.size() == height:
+			cell_fatigues[position.y][position.x] = false
 
 
 func get_source(position: Vector2i) -> int:
@@ -61,6 +70,17 @@ func get_source(position: Vector2i) -> int:
 func set_source(position: Vector2i, source: int) -> void:
 	if is_inside(position) and cell_sources.size() == height:
 		cell_sources[position.y][position.x] = source
+
+
+func is_fatigued(position: Vector2i) -> bool:
+	if not is_inside(position) or cell_fatigues.size() != height:
+		return false
+	return bool(cell_fatigues[position.y][position.x])
+
+
+func set_fatigued(position: Vector2i, fatigued: bool) -> void:
+	if is_inside(position) and cell_fatigues.size() == height:
+		cell_fatigues[position.y][position.x] = fatigued
 
 
 func can_place(cells_to_place: Array) -> bool:
@@ -83,10 +103,10 @@ func can_stage(cells_to_stage: Array) -> bool:
 	return true
 
 
-func can_settle(cells_to_drop: Array, values: Array = []) -> bool:
+func can_settle(cells_to_drop: Array, values: Array = [], merge_fatigue_enabled: bool = true) -> bool:
 	if not can_stage(cells_to_drop):
 		return false
-	return bool(project_settlement(cells_to_drop, values).get("legal", false))
+	return bool(project_settlement(cells_to_drop, values, merge_fatigue_enabled).get("legal", false))
 
 
 func place_cells(cells_to_place: Array, values: Array) -> void:
@@ -130,9 +150,9 @@ func get_landing_cells(cells_to_drop: Array, values: Array = []) -> Array[Vector
 
 
 ## Runs the exact settlement rules used by settle_cells without mutating this board.
-func project_settlement(cells_to_drop: Array, values: Array = []) -> Dictionary:
+func project_settlement(cells_to_drop: Array, values: Array = [], merge_fatigue_enabled: bool = true) -> Dictionary:
 	var projection := duplicate_state()
-	var result: Dictionary = projection.settle_cells(cells_to_drop, values, 0)
+	var result: Dictionary = projection.settle_cells(cells_to_drop, values, 0, merge_fatigue_enabled)
 	var first_wave_merge_count := 0
 	for event in result.get("events", []):
 		if event.get("type", "") == "merge_wave":
@@ -143,9 +163,10 @@ func project_settlement(cells_to_drop: Array, values: Array = []) -> Dictionary:
 	return result
 
 
-## Resolves one turn from a rigid active-piece landing into cell gravity and
-## deterministic 2048-style orthogonal pair merge waves.
-func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> Dictionary:
+## Resolves one turn from a rigid active-piece landing into a deterministic
+## stability pipeline: complete gravity pass, then one merge wave, repeated until
+## no tile moved and no eligible pair merged. Merges never run mid-gravity.
+func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merge_fatigue_enabled: bool = true) -> Dictionary:
 	var result := {
 		"legal": false,
 		"score": 0,
@@ -164,11 +185,16 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> D
 	var original_sources: Array[Array] = []
 	for source_row in cell_sources:
 		original_sources.append(source_row.duplicate())
+	var original_fatigues: Array[Array] = []
+	for fatigue_row in cell_fatigues:
+		original_fatigues.append(fatigue_row.duplicate())
+	_clear_fatigues()
 
 	var landing := get_rigid_landing_cells(cells_to_drop)
 	if landing.size() != cells_to_drop.size():
 		cells = original_cells
 		cell_sources = original_sources
+		cell_fatigues = original_fatigues
 		return result
 
 	for index in landing.size():
@@ -200,7 +226,7 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> D
 				"wave_index": wave_index
 			})
 			gravity_phase_index += 1
-		var merge := _merge_wave(wave_index)
+		var merge := _merge_wave(wave_index, merge_fatigue_enabled)
 		_accumulate_resolution(result, merge)
 		if merge["merged"]:
 			result["events"].append({
@@ -216,6 +242,7 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int) -> D
 			break
 		pass_index += 1
 	_clear_sources()
+	_clear_fatigues()
 	result["events"].append({"type": "stable"})
 	return result
 
@@ -269,9 +296,11 @@ func _gravity_pass() -> Dictionary:
 				continue
 			if y != write_y:
 				var source := get_source(Vector2i(x, y))
+				var fatigued := is_fatigued(Vector2i(x, y))
 				set_value(Vector2i(x, y), 0)
 				set_value(Vector2i(x, write_y), value)
 				set_source(Vector2i(x, write_y), source)
+				set_fatigued(Vector2i(x, write_y), fatigued)
 				var from := Vector2i(x, y)
 				var to := Vector2i(x, write_y)
 				moved_cells.append(to)
@@ -289,7 +318,7 @@ func _gravity_pass() -> Dictionary:
 	}
 
 
-func _merge_wave(wave_index: int) -> Dictionary:
+func _merge_wave(wave_index: int, merge_fatigue_enabled: bool = false) -> Dictionary:
 	var result := {"score": 0, "merged": false, "steps": []}
 	var pairs: Array[Array] = _find_merge_pairs()
 	if pairs.is_empty():
@@ -309,6 +338,7 @@ func _merge_wave(wave_index: int) -> Dictionary:
 		var to_value: int = int(write["value"]) + 1
 		set_value(write["target"], to_value)
 		set_source(write["target"], 0)
+		set_fatigued(write["target"], merge_fatigue_enabled)
 		var score_awarded := int(pow(2.0, to_value)) * wave_index
 		result["score"] += score_awarded
 		result["steps"].append(_merge_step(write["source"], write["target"], int(write["value"]), "merge_wave", wave_index - 1, wave_index, score_awarded))
@@ -338,13 +368,21 @@ func _find_merge_pairs() -> Array[Array]:
 				if used.has(cell):
 					continue
 				for neighbor: Vector2i in _ordered_equal_neighbors(cell, used):
-					if _is_protected_same_spawn_pair(cell, neighbor):
+					if not _can_merge_pair(cell, neighbor):
 						continue
 					used[cell] = true
 					used[neighbor] = true
 					pairs.append([cell, neighbor])
 					break
 	return pairs
+
+
+func _can_merge_pair(first: Vector2i, second: Vector2i) -> bool:
+	if _is_protected_same_spawn_pair(first, second):
+		return false
+	if is_fatigued(first) or is_fatigued(second):
+		return false
+	return true
 
 
 func _is_protected_same_spawn_pair(first: Vector2i, second: Vector2i) -> bool:
@@ -356,6 +394,12 @@ func _clear_sources() -> void:
 	for y in cell_sources.size():
 		for x in cell_sources[y].size():
 			cell_sources[y][x] = 0
+
+
+func _clear_fatigues() -> void:
+	for y in cell_fatigues.size():
+		for x in cell_fatigues[y].size():
+			cell_fatigues[y][x] = false
 
 
 func _equal_component(start: Vector2i, visited: Dictionary) -> Array[Vector2i]:

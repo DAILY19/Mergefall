@@ -284,20 +284,20 @@ func _run() -> void:
 			shown_multipliers.append(int(event.get("multiplier", 0)))
 	)
 	main._confirm_drop()
-	_expect(main.completed_turns == 0, "A multi-wave turn should remain incomplete until all resolution feedback finishes.", failures)
+	_expect(main.completed_turns == 0, "A resolving turn should remain incomplete until all resolution feedback finishes.", failures)
 	_expect(main.hud.get_multiplier_bar_state() == "resolving", "Drop should clear staged preview and begin resolution feedback.", failures)
-	_expect(main.board_state.get_value(Vector2i(3, main.config.board_height - 1)) == 3, "A falling tetromino cell should merge with equal orthogonal support.", failures)
+	_expect(main.board_state.get_value(Vector2i(3, main.config.board_height - 1)) == 2, "A falling tetromino cell should merge with equal orthogonal support without remerging while fatigued.", failures)
 	await create_timer(2.8).timeout
 	_expect(resolution_events.find("rigid_landing") < resolution_events.find("merge_wave"), "Rigid landing should animate before the merge wave.", failures)
 	_expect(not shown_multipliers.is_empty() and shown_multipliers[0] == 1, "The first merge event should display authoritative multiplier x1.", failures)
 	_expect(main.score > 0, "Score presentation should advance from the authoritative merge-wave score.", failures)
-	_expect(main.completed_turns == 1, "A multi-wave merge sequence should still count as exactly one completed turn.", failures)
+	_expect(main.completed_turns == 1, "A fatigued merge sequence should still count as exactly one completed turn.", failures)
 	_expect(
-		main.run_statistics.total_merges >= 2
-		and main.run_statistics.total_merge_waves >= 2
-		and main.run_statistics.longest_merge_chain >= 2
-		and main.run_statistics.highest_multiplier >= 2,
-		"Run statistics should summarize merge counts, waves, chains, and multipliers.",
+		main.run_statistics.total_merges >= 1
+		and main.run_statistics.total_merge_waves >= 1
+		and main.run_statistics.longest_merge_chain >= 1
+		and main.run_statistics.highest_multiplier >= 1,
+		"Run statistics should summarize fatigued merge counts, waves, chains, and multipliers.",
 		failures
 	)
 

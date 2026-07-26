@@ -32,6 +32,7 @@ outer_padding = 6
 min_merge_group = 2
 score_per_rank = 10
 merge_charge_threshold = 8
+merge_fatigue_enabled = true
 piece_definitions = [ExtResource("2_i_h"), ExtResource("3_i_v"), ExtResource("4_o"), ExtResource("5_t_u"), ExtResource("6_t_r"), ExtResource("7_t_d"), ExtResource("8_t_l"), ExtResource("9_s_h"), ExtResource("10_s_v"), ExtResource("11_z_h"), ExtResource("12_z_v"), ExtResource("13_j_u"), ExtResource("14_j_r"), ExtResource("15_j_d"), ExtResource("16_j_l"), ExtResource("17_l_u"), ExtResource("18_l_r"), ExtResource("19_l_d"), ExtResource("20_l_l")]
 preview_piece_count = 3
 spawn_progression = ExtResource("21_progression")
