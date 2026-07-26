@@ -28,22 +28,27 @@ Built and tested with Godot `4.7.1.stable` non-mono.
 
 Open `project.godot` in Godot 4.7.1 and run the main scene.
 
-For headless startup validation:
+For headless startup validation, set `MERGEFALL_GODOT` to a Godot 4.7.1 console executable or install `godot` on `PATH`.
 
 ```powershell
-.\tools\local-godot\Godot_v4.7.1-stable_win64_console.exe --headless --quit
+.\tools\validate.ps1 -SkipExport
 ```
 
 ## Tests
 
 ```powershell
-.\tools\local-godot\Godot_v4.7.1-stable_win64_console.exe --headless -s res://tests/run_rules_tests.gd
-.\tools\local-godot\Godot_v4.7.1-stable_win64_console.exe --headless -s res://tests/falling_feel_test_runner.gd
+.\tools\validate.ps1 -SkipExport
 ```
 
 ## Web Export
 
-The Web preset exports to `build/web/index.html`. GitHub Actions builds that export and deploys it through GitHub Pages.
+The Web preset exports to `build/web/index.html`.
+
+```powershell
+.\tools\validate.ps1
+```
+
+GitHub Pages is deployed by `.github/workflows/deploy-pages.yml`: each push to `main` runs tests, exports the Web build from a clean checkout, uploads `build/web` as the Pages artifact, and deploys that artifact. Generated Web output is not tracked in Git.
 
 GitHub Pages URL:
 
