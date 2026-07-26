@@ -101,19 +101,27 @@ extends Control
 @onready var _drop_button: Button = %DropButton
 @onready var _undo_button: Button = %UndoButton
 @onready var _restart_button: Button = %RestartButton
+@onready var _restart_progress_bar: ProgressBar = %RestartProgressBar
 @onready var _stats_row: HBoxContainer = %StatsRow
 @onready var _board_slot: Control = %BoardSlot
 
 var _multiplier_bar_state := "idle"
 var _displayed_multiplier := 1
 var _bar_tween: Tween
+var _restart_action := Callable()
+var _new_run_hold_active := false
+var _new_run_hold_elapsed := 0.0
+var _new_run_hold_completed := false
 
 const MERGE_PREVIEW_FILL := 18.0
+const NEW_RUN_HOLD_DURATION := 1.0
 
 
 func _ready() -> void:
 	_apply_theme()
 	reset_multiplier_bar()
+	_reset_new_run_hold_visuals()
+	visibility_changed.connect(_on_visibility_changed)
 
 
 func bind_actions(
@@ -127,7 +135,13 @@ func bind_actions(
 	_right_button.pressed.connect(move_right_action)
 	_drop_button.pressed.connect(drop_action)
 	_undo_button.pressed.connect(undo_action)
-	_restart_button.pressed.connect(restart_action)
+	_restart_action = restart_action
+	if not _restart_button.button_down.is_connected(_begin_new_run_hold):
+		_restart_button.button_down.connect(_begin_new_run_hold)
+	if not _restart_button.button_up.is_connected(_cancel_new_run_hold):
+		_restart_button.button_up.connect(_cancel_new_run_hold)
+	if not _restart_button.mouse_exited.is_connected(_cancel_new_run_hold):
+		_restart_button.mouse_exited.connect(_cancel_new_run_hold)
 
 
 func update_status(data: Dictionary) -> void:
@@ -188,6 +202,14 @@ func reset_multiplier_bar() -> void:
 	_charge_bar.modulate = Color.WHITE
 	_update_multiplier_text()
 	_apply_charge_bar_style()
+
+
+func get_new_run_hold_progress() -> float:
+	return float(_restart_progress_bar.value) / float(_restart_progress_bar.max_value)
+
+
+func is_new_run_hold_active() -> bool:
+	return _new_run_hold_active
 
 
 func get_multiplier_bar_state() -> String:
@@ -266,6 +288,7 @@ func _apply_theme() -> void:
 	_apply_button_style(_drop_button, true)
 	_apply_button_style(_undo_button, false)
 	_apply_button_style(_restart_button, false)
+	_apply_new_run_progress_style()
 	_preview_strip.title_font = body_font
 	_preview_strip.label_font = body_font
 	_preview_strip.visual_set = visual_set
@@ -371,6 +394,16 @@ func _apply_button_style(button: Button, emphasize: bool) -> void:
 	button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.85, 0.82, 0.77, 0.92)))
 
 
+func _apply_new_run_progress_style() -> void:
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color.TRANSPARENT
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = accent_color.lightened(0.1)
+	fill.set_corner_radius_all(2)
+	_restart_progress_bar.add_theme_stylebox_override("background", background)
+	_restart_progress_bar.add_theme_stylebox_override("fill", fill)
+
+
 func _make_button_style(fill_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
@@ -385,3 +418,65 @@ func _make_button_style(fill_color: Color) -> StyleBoxFlat:
 	style.content_margin_right = 10
 	style.content_margin_bottom = 8
 	return style
+
+
+func _process(delta: float) -> void:
+	_update_new_run_hold(delta)
+
+
+func _begin_new_run_hold() -> void:
+	if _new_run_hold_active or _new_run_hold_completed or _restart_button.disabled:
+		return
+	_new_run_hold_active = true
+	_new_run_hold_elapsed = 0.0
+	_new_run_hold_completed = false
+	_restart_progress_bar.value = 0.0
+	set_process(true)
+
+
+func _update_new_run_hold(delta: float) -> void:
+	if not _new_run_hold_active or _new_run_hold_completed:
+		return
+	_new_run_hold_elapsed = minf(_new_run_hold_elapsed + maxf(delta, 0.0), NEW_RUN_HOLD_DURATION)
+	_restart_progress_bar.value = (_new_run_hold_elapsed / NEW_RUN_HOLD_DURATION) * _restart_progress_bar.max_value
+	if _new_run_hold_elapsed >= NEW_RUN_HOLD_DURATION:
+		_complete_new_run_hold()
+
+
+func _cancel_new_run_hold() -> void:
+	if not _new_run_hold_active and _new_run_hold_elapsed <= 0.0:
+		return
+	if _new_run_hold_completed:
+		_reset_new_run_hold_visuals()
+		return
+	_new_run_hold_active = false
+	_new_run_hold_elapsed = 0.0
+	_reset_new_run_hold_visuals()
+
+
+func _complete_new_run_hold() -> void:
+	if _new_run_hold_completed:
+		return
+	_new_run_hold_completed = true
+	_new_run_hold_active = false
+	if _restart_action.is_valid():
+		_restart_action.call()
+	_reset_new_run_hold_visuals()
+
+
+func _reset_new_run_hold_visuals() -> void:
+	_new_run_hold_active = false
+	_new_run_hold_elapsed = 0.0
+	_new_run_hold_completed = false
+	_restart_progress_bar.value = 0.0
+	set_process(false)
+
+
+func _on_visibility_changed() -> void:
+	if not visible:
+		_cancel_new_run_hold()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		_cancel_new_run_hold()

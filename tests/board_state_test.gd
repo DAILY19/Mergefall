@@ -2,9 +2,10 @@ extends RefCounted
 
 const BoardStateScript = preload("res://scripts/core/board_state.gd")
 const PieceGeneratorScript = preload("res://scripts/core/piece_generator.gd")
-const SingleCrumbPiece = preload("res://resources/pieces/single_crumb.tres")
-const DominoPiece = preload("res://resources/pieces/domino_bites.tres")
-const CornerPiece = preload("res://resources/pieces/l_snack.tres")
+const Config = preload("res://resources/config/default_game_config.tres")
+const IHorizontalPiece = preload("res://resources/pieces/i_horizontal.tres")
+const IVerticalPiece = preload("res://resources/pieces/i_vertical.tres")
+const OPiece = preload("res://resources/pieces/o.tres")
 
 
 static func run() -> PackedStringArray:
@@ -21,6 +22,8 @@ static func run() -> PackedStringArray:
 	_test_scoring_waves(failures)
 	_test_same_piece_merges_are_allowed(failures)
 	_test_piece_generation_values(failures)
+	_test_tetromino_catalog(failures)
+	_test_large_sample_generation(failures)
 	_test_game_over_uses_settlement(failures)
 	_test_first_wave_projection(failures)
 	_test_multiplier_bar_is_not_a_board_rule(failures)
@@ -29,11 +32,16 @@ static func run() -> PackedStringArray:
 
 static func _test_config_dimensions(failures: PackedStringArray) -> void:
 	var board = BoardStateScript.new()
-	board.setup(6, 7)
-	_expect(board.width == 6, "Prototype board width should be 6.", failures)
-	_expect(board.height == 7, "Prototype board height should be 7.", failures)
-	_expect(board.is_inside(Vector2i(5, 6)), "Row 6 should be playable.", failures)
-	_expect(not board.is_inside(Vector2i(0, 7)), "Row 7 should be outside the board.", failures)
+	board.setup(Config.board_width, Config.board_height)
+	_expect(board.width == 7, "Mergefall board width should be 7.", failures)
+	_expect(board.height == 9, "Mergefall board height should be 9.", failures)
+	var stored_cells := 0
+	for row in board.cells:
+		stored_cells += row.size()
+	_expect(stored_cells == 63, "Board storage should contain 63 cells.", failures)
+	_expect(board.is_inside(Vector2i(6, 8)), "Column 6 and row 8 should be playable.", failures)
+	_expect(not board.is_inside(Vector2i(7, 0)), "Column 7 should be outside the board.", failures)
+	_expect(not board.is_inside(Vector2i(0, 9)), "Row 9 should be outside the board.", failures)
 
 
 static func _test_basic_staging_and_rigid_landing(failures: PackedStringArray) -> void:
@@ -188,24 +196,101 @@ static func _test_same_piece_merges_are_allowed(failures: PackedStringArray) -> 
 
 static func _test_piece_generation_values(failures: PackedStringArray) -> void:
 	var generator = PieceGeneratorScript.new()
-	var piece = generator.next_piece([DominoPiece, CornerPiece, SingleCrumbPiece])
+	generator.rng.seed = 12345
+	var piece = generator.next_piece(Config.piece_definitions, Config.spawn_progression, 0)
 	_expect(piece != null, "Generator should return a piece from valid definitions.", failures)
-	for candidate in [DominoPiece, CornerPiece]:
+	_expect(piece.cells.size() == 4, "Generated tetromino should contain exactly four cells.", failures)
+	var seen_patterns := {}
+	for _index in 256:
+		var candidate = generator.next_piece(Config.piece_definitions, Config.spawn_progression, 0)
 		var cells: Array = candidate.get_rotated_cells(0)
 		var values: Array = candidate.get_rotated_values(0)
+		var displayed_values: Array = values.map(func(value: int) -> int:
+			return int(pow(2.0, value))
+		)
+		_expect(displayed_values.all(func(value: int) -> bool:
+			return value == 2 or value == 4
+		), "Turn-zero generated pieces should only use display values 2 or 4.", failures)
 		for first_index in cells.size():
 			for second_index in range(first_index + 1, cells.size()):
 				var adjacent: bool = (cells[first_index] - cells[second_index]).length_squared() == 1
-				_expect(not adjacent or values[first_index] != values[second_index], "Prototype pieces should avoid adjacent equal internal values.", failures)
+				_expect(not adjacent or values[first_index] != values[second_index], "Tetromino pieces should avoid adjacent equal internal values.", failures)
+		seen_patterns["%s:%s:%s" % [candidate.family, candidate.orientation, values]] = true
+	_expect(seen_patterns.size() > 19, "Generated tetrominoes should include both parity value patterns.", failures)
+
+
+static func _test_tetromino_catalog(failures: PackedStringArray) -> void:
+	var generator = PieceGeneratorScript.new()
+	var catalog := generator.get_catalog(Config.piece_definitions)
+	var counts := {}
+	var shapes := {}
+	for piece in catalog:
+		counts[piece.family] = int(counts.get(piece.family, 0)) + 1
+		_expect(piece.cells.size() == 4, "%s should contain exactly four cells." % piece.display_name, failures)
+		_expect(_is_normalized(piece.cells), "%s should use normalized coordinates." % piece.display_name, failures)
+		_expect(_has_unique_cells(piece.cells), "%s should not duplicate coordinates." % piece.display_name, failures)
+		_expect(_is_connected(piece.cells), "%s should be orthogonally connected." % piece.display_name, failures)
+		var key := _shape_key(piece.cells)
+		_expect(not shapes.has(key), "%s should not duplicate another normalized orientation." % piece.display_name, failures)
+		shapes[key] = true
+	_expect(counts.keys().size() == 7, "Tetromino catalog should contain exactly seven families.", failures)
+	_expect(catalog.size() == 19, "Tetromino catalog should contain exactly 19 orientations.", failures)
+	_expect(counts == {"I": 2, "O": 1, "T": 4, "S": 2, "Z": 2, "J": 4, "L": 4}, "Tetromino family counts should match the standard orientation catalog.", failures)
+
+
+static func _test_large_sample_generation(failures: PackedStringArray) -> void:
+	var first = PieceGeneratorScript.new()
+	var second = PieceGeneratorScript.new()
+	first.rng.seed = 777
+	second.rng.seed = 777
+	var families := {}
+	var orientations := {}
+	var first_signature := []
+	var second_signature := []
+	for index in 10000:
+		var piece = first.next_piece(Config.piece_definitions, Config.spawn_progression, 0)
+		var matching_piece = second.next_piece(Config.piece_definitions, Config.spawn_progression, 0)
+		var signature := "%s:%s:%s" % [piece.family, piece.orientation, piece.cell_values]
+		if index < 64:
+			first_signature.append(signature)
+			second_signature.append("%s:%s:%s" % [matching_piece.family, matching_piece.orientation, matching_piece.cell_values])
+		families[piece.family] = int(families.get(piece.family, 0)) + 1
+		var orientation_key := "%s:%s" % [piece.family, piece.orientation]
+		orientations[orientation_key] = int(orientations.get(orientation_key, 0)) + 1
+		_expect(piece.cells.size() == 4, "Generated sample should not exceed four cells.", failures)
+		_expect(_has_unique_cells(piece.cells), "Generated sample should not contain duplicate cells.", failures)
+		_expect(_is_normalized(piece.cells), "Generated sample should remain normalized.", failures)
+		var bounds := _piece_bounds(piece.cells)
+		_expect(bounds.size.x <= Config.board_width and bounds.size.y <= Config.board_height, "Generated sample should fit within board dimensions.", failures)
+		_expect(piece.cell_values.all(func(value: int) -> bool:
+			return value == 1 or value == 2
+		), "Turn-zero generated samples should only use ranks for display values 2 and 4.", failures)
+		_expect(_has_valid_values(piece), "Generated sample should not contain adjacent equal values.", failures)
+	_expect(first_signature == second_signature, "Identical generator seeds should produce identical queues.", failures)
+	_expect(families.keys().size() == 7, "Large sample should include all seven families.", failures)
+	_expect(orientations.keys().size() == 19, "Large sample should include all 19 orientations.", failures)
+	for family in PieceGeneratorScript.FAMILY_ORDER:
+		var family_ratio := float(families.get(family, 0)) / 10000.0
+		_expect(absf(family_ratio - (1.0 / 7.0)) < 0.025, "Family %s should retain uniform family-first selection." % family, failures)
+	var orientations_per_family := {"I": 2, "O": 1, "T": 4, "S": 2, "Z": 2, "J": 4, "L": 4}
+	for orientation_key in orientations:
+		var family: String = orientation_key.split(":")[0]
+		var conditional_ratio := float(orientations[orientation_key]) / float(families[family])
+		var expected_ratio := 1.0 / float(orientations_per_family[family])
+		_expect(absf(conditional_ratio - expected_ratio) < 0.05, "Orientation %s should remain uniform within family %s." % [orientation_key, family], failures)
+	var different = PieceGeneratorScript.new()
+	different.rng.seed = 778
+	var different_piece = different.next_piece(Config.piece_definitions, Config.spawn_progression, 0)
+	_expect(first_signature[0] != "%s:%s:%s" % [different_piece.family, different_piece.orientation, different_piece.cell_values], "Different seeds should be able to produce different output.", failures)
 
 
 static func _test_game_over_uses_settlement(failures: PackedStringArray) -> void:
 	var board = BoardStateScript.new()
-	board.setup(1, 2)
-	_expect(board.has_any_moves([SingleCrumbPiece]), "An empty lane should have a legal settlement.", failures)
-	board.set_value(Vector2i(0, 0), 1)
-	board.set_value(Vector2i(0, 1), 2)
-	_expect(not board.has_any_moves([SingleCrumbPiece]), "Game over should occur when no legal settlement path exists.", failures)
+	board.setup(4, 4)
+	_expect(board.has_any_moves([IHorizontalPiece, IVerticalPiece, OPiece]), "An empty tetromino lane should have a legal settlement.", failures)
+	for x in board.width:
+		board.set_value(Vector2i(x, 0), 1 + posmod(x, 2))
+	_expect(not board.has_any_moves([IHorizontalPiece, IVerticalPiece, OPiece]), "Game over should occur when no tetromino has a legal settlement path.", failures)
 
 
 static func _test_first_wave_projection(failures: PackedStringArray) -> void:
@@ -252,3 +337,64 @@ static func _merge_wave_count(result: Dictionary) -> int:
 static func _expect(condition: bool, message: String, failures: PackedStringArray) -> void:
 	if not condition:
 		failures.append(message)
+
+
+static func _has_valid_values(piece: Resource) -> bool:
+	for first_index in piece.cells.size():
+		for second_index in range(first_index + 1, piece.cells.size()):
+			if piece.cell_values[first_index] == piece.cell_values[second_index]:
+				if (piece.cells[first_index] - piece.cells[second_index]).length_squared() == 1:
+					return false
+	return true
+
+
+static func _is_normalized(cells: Array[Vector2i]) -> bool:
+	var bounds := _piece_bounds(cells)
+	return bounds.position == Vector2i.ZERO
+
+
+static func _has_unique_cells(cells: Array[Vector2i]) -> bool:
+	var seen := {}
+	for cell in cells:
+		if seen.has(cell):
+			return false
+		seen[cell] = true
+	return true
+
+
+static func _is_connected(cells: Array[Vector2i]) -> bool:
+	var remaining := {}
+	for cell in cells:
+		remaining[cell] = true
+	var frontier: Array[Vector2i] = [cells[0]]
+	remaining.erase(cells[0])
+	while not frontier.is_empty():
+		var cell: Vector2i = frontier.pop_back()
+		for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var next: Vector2i = cell + offset
+			if remaining.has(next):
+				remaining.erase(next)
+				frontier.append(next)
+	return remaining.is_empty()
+
+
+static func _piece_bounds(cells: Array[Vector2i]) -> Rect2i:
+	var first_cell: Vector2i = cells[0]
+	var min_x: int = first_cell.x
+	var min_y: int = first_cell.y
+	var max_x: int = first_cell.x
+	var max_y: int = first_cell.y
+	for cell in cells:
+		min_x = mini(min_x, cell.x)
+		min_y = mini(min_y, cell.y)
+		max_x = maxi(max_x, cell.x)
+		max_y = maxi(max_y, cell.y)
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+static func _shape_key(cells: Array[Vector2i]) -> String:
+	var sorted := cells.duplicate()
+	sorted.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	return str(sorted)

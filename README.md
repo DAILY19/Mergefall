@@ -1,6 +1,6 @@
 # Mergefall
 
-Mergefall is a turn-based Godot puzzle game about positioning fixed-orientation pieces, dropping them into a 6x7 board, and building deterministic 2048-style merge waves.
+Mergefall is a turn-based Godot puzzle game about positioning fixed-orientation tetromino pieces, dropping them into a 7x9 board, and building deterministic 2048-style merge waves. Spawn values progress from mostly low-value tiles toward 8 and 16 as completed turns accumulate, using the tunable phases in `resources/config/default_spawn_progression.tres`.
 
 ## Controls
 

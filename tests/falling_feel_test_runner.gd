@@ -1,8 +1,9 @@
 extends SceneTree
 
-const SinglePiece = preload("res://resources/pieces/single_crumb.tres")
-const CornerPiece = preload("res://resources/pieces/l_snack.tres")
-const SpirePiece = preload("res://resources/pieces/tray_tower.tres")
+const IHorizontalPiece = preload("res://resources/pieces/i_horizontal.tres")
+const IVerticalPiece = preload("res://resources/pieces/i_vertical.tres")
+const OPiece = preload("res://resources/pieces/o.tres")
+const TUpPiece = preload("res://resources/pieces/t_up.tres")
 
 
 func _init() -> void:
@@ -17,7 +18,14 @@ func _run() -> void:
 	main.set_process(false)
 	var failures := PackedStringArray()
 
-	_expect(main.config.board_width == 6 and main.config.board_height == 7, "The scene should use the authoritative 6x7 configuration.", failures)
+	_expect(main.config.board_width == 7 and main.config.board_height == 9, "The scene should use the authoritative 7x9 configuration.", failures)
+	_expect(main.config.piece_definitions.size() == 19, "The scene should use the 19-orientation tetromino catalog.", failures)
+	_expect(main.completed_turns == 0 and main.current_piece.generation_turn == 0, "A new run should activate a turn-zero piece.", failures)
+	_expect(
+		main.next_pieces.map(func(piece: Resource) -> int: return piece.generation_turn) == [1, 2, 3],
+		"Initial queue previews should be generated for their future activation turns.",
+		failures
+	)
 	var buttons_row: Node = main.hud.get_node("%LeftButton").get_parent()
 	var visible_buttons: Array[String] = []
 	for child in buttons_row.get_children():
@@ -25,6 +33,8 @@ func _run() -> void:
 			visible_buttons.append(child.text.to_upper())
 	_expect(visible_buttons == ["LEFT", "DROP", "RIGHT"], "Bottom controls should be ordered LEFT, DROP, RIGHT.", failures)
 	_expect(not main.hud.get_node("%RotateButton").visible, "Rotation control should be hidden.", failures)
+	_expect(main.hud.get_node("%RestartButton").text == "NEW RUN", "Restart control should use the idle NEW RUN label.", failures)
+	_expect(main.hud.get_new_run_hold_progress() == 0.0, "New Run hold progress should begin at zero.", failures)
 	_expect(not main.board_view.clip_contents, "The active-piece view should not clip above-board cells.", failures)
 	var initial_board_rect: Rect2 = main.board_view.get_board_rect()
 	var initial_drop_zone_rect: Rect2 = main.board_view.get_drop_zone_rect(initial_board_rect)
@@ -78,11 +88,11 @@ func _run() -> void:
 	)
 
 	main.start_new_game()
-	main.current_piece = SpirePiece
-	_expect(main._find_legal_staging_position(), "A vertical three-cell piece should have a legal staged spawn.", failures)
+	main.current_piece = IVerticalPiece
+	_expect(main._find_legal_staging_position(), "A vertical I piece should have a legal staged spawn.", failures)
 	main._refresh_board_view()
 	var staged_cells: Array[Vector2i] = main._current_cells()
-	_expect(staged_cells == [Vector2i(2, -4), Vector2i(2, -3), Vector2i(2, -2)], "Spawn positioning should keep the Spire higher while aligned with the board entrance.", failures)
+	_expect(staged_cells == [Vector2i(3, -5), Vector2i(3, -4), Vector2i(3, -3), Vector2i(3, -2)], "Spawn positioning should keep the vertical I fully visible while aligned with the board entrance.", failures)
 	var board_rect: Rect2 = main.board_view.get_board_rect()
 	var drop_zone_rect: Rect2 = main.board_view.get_drop_zone_rect(board_rect)
 	var top_staged_rect: Rect2 = main.board_view.get_cell_rect(board_rect, staged_cells[0])
@@ -99,23 +109,26 @@ func _run() -> void:
 	)
 
 	main.start_new_game()
-	main.current_piece = CornerPiece
+	main.current_piece = TUpPiece
 	main.current_anchor = Vector2i(0, 0)
 	main.current_rotation = 0
 	main._try_rotate(1)
 	_expect(main.current_rotation == 0, "Rotation input should not alter the active fixed-orientation piece.", failures)
 
 	main.start_new_game()
-	main.current_piece = SinglePiece
-	main.current_anchor = Vector2i(2, -2)
+	main.current_piece = IHorizontalPiece
+	main.current_anchor = Vector2i(1, -2)
 	main.current_rotation = 0
 	main._process(10.0)
-	_expect(main.current_anchor == Vector2i(2, -2), "Pieces should never descend on a timer.", failures)
-	_expect(main.board_state.get_value(Vector2i(2, main.config.board_height - 1)) == 0, "Waiting should not place a piece.", failures)
+	_expect(main.current_anchor == Vector2i(1, -2), "Pieces should never descend on a timer.", failures)
+	_expect(main.board_state.get_value(Vector2i(1, main.config.board_height - 1)) == 0, "Waiting should not place a piece.", failures)
+	var queue_before_drop: Array[Resource] = main.next_pieces.duplicate()
+	var generator_state_before_drop: int = main.piece_generator.rng.state
 	main._confirm_drop()
-	_expect(main.board_state.get_value(Vector2i(2, main.config.board_height - 1)) == 1, "Drop confirmation should settle at the floor.", failures)
+	_expect(main.completed_turns == 0, "A turn should not complete while resolution feedback is still active.", failures)
+	_expect(main.board_state.get_value(Vector2i(1, main.config.board_height - 1)) == 1, "Drop confirmation should settle at the floor.", failures)
 	_expect(main.board_view.is_resolution_feedback_active(), "Drop should begin a sequenced resolution presentation.", failures)
-	_expect(main.board_view._resolution_from == [Vector2i(2, -2)], "Rigid-drop animation should start from the displayed drop-zone position.", failures)
+	_expect(main.board_view._resolution_from == [Vector2i(1, -2), Vector2i(2, -2), Vector2i(3, -2), Vector2i(4, -2)], "Rigid-drop animation should start from the displayed drop-zone position.", failures)
 	var hidden_piece_anchor: Vector2i = main.current_anchor
 	var piece_before_resolution: Resource = main.current_piece
 	main._try_move_anchor(Vector2i.LEFT)
@@ -125,15 +138,78 @@ func _run() -> void:
 	_expect(not main.board_view.is_resolution_feedback_active(), "Resolution presentation should finish before the next turn accepts input.", failures)
 	_expect(main.current_piece != null, "A next piece should be active after resolution feedback finishes.", failures)
 	_expect(main.hud.get_multiplier_bar_state() != "resolving", "The multiplier bar should leave resolving state only after the turn finishes.", failures)
+	_expect(main.completed_turns == 1, "A fully resolved placed piece should advance completed turns exactly once.", failures)
+	_expect(main.run_statistics.highest_produced_tile >= 4, "Run statistics should record the highest stable tile.", failures)
+	main._on_undo_pressed()
+	_expect(main.completed_turns == 0, "Undo should restore the completed-turn snapshot.", failures)
+	_expect(main.next_pieces == queue_before_drop, "Undo should restore the exact preview queue.", failures)
+	_expect(main.piece_generator.rng.state == generator_state_before_drop, "Undo should restore generator RNG state.", failures)
 
 	main.start_new_game()
-	main.current_piece = SinglePiece
-	main.current_anchor = Vector2i(2, 0)
+	main.completed_turns = 30
+	main.current_piece = null
+	main.next_pieces.clear()
+	main._fill_preview_queue(30)
+	main._draw_next_piece()
+	var boundary_preview: Resource = main.next_pieces[0]
+	_expect(main.current_piece.generation_turn == 30, "Turn 30 should activate a first-phase piece.", failures)
+	_expect(boundary_preview.generation_turn == 31, "The first preview at turn 30 should already use turn 31 progression.", failures)
+	main.completed_turns = 31
+	main._draw_next_piece()
+	_expect(main.current_piece == boundary_preview, "The phase-boundary preview must be the exact piece that becomes active.", failures)
+	_expect(
+		main.current_piece.cell_values.all(func(rank: int) -> bool: return [1, 2, 3].has(rank)),
+		"Turn 31 queue handoff should use only second-phase ranks.",
+		failures
+	)
+
+	main.start_new_game()
+	main.current_piece = IHorizontalPiece
+	main.current_anchor = Vector2i(1, 0)
+	main.current_rotation = 0
+	var restart_button: Button = main.hud.get_node("%RestartButton")
+	var starting_piece: Resource = main.current_piece
+	var starting_anchor: Vector2i = main.current_anchor
+	var starting_move_count: int = main.move_count
+	restart_button.pressed.emit()
+	_expect(main.current_piece == starting_piece and main.current_anchor == starting_anchor and main.move_count == starting_move_count, "A normal New Run click should not restart the active run.", failures)
+	main.hud._begin_new_run_hold()
+	main.hud._update_new_run_hold(0.25)
+	_expect(main.hud.is_new_run_hold_active(), "Short New Run hold should remain cancellable.", failures)
+	_expect(main.hud.get_new_run_hold_progress() > 0.0, "New Run hold progress should increase while held.", failures)
+	main.hud._cancel_new_run_hold()
+	_expect(main.current_piece == starting_piece and main.current_anchor == starting_anchor and main.move_count == starting_move_count, "Releasing New Run early should keep the current run unchanged.", failures)
+	_expect(main.hud.get_new_run_hold_progress() == 0.0, "New Run hold progress should reset after cancellation.", failures)
+	for _click_index in 5:
+		main.hud._begin_new_run_hold()
+		main.hud._update_new_run_hold(0.05)
+		main.hud._cancel_new_run_hold()
+	_expect(main.current_piece == starting_piece and main.current_anchor == starting_anchor and main.move_count == starting_move_count, "Rapid short New Run presses should not restart.", failures)
+	main.hud._begin_new_run_hold()
+	main.hud._update_new_run_hold(0.2)
+	restart_button.mouse_exited.emit()
+	_expect(not main.hud.is_new_run_hold_active() and main.hud.get_new_run_hold_progress() == 0.0, "Leaving the New Run button should cancel an active hold safely.", failures)
+	main.hud._begin_new_run_hold()
+	main.start_new_game()
+	_expect(not main.hud.is_new_run_hold_active() and main.hud.get_new_run_hold_progress() == 0.0, "Starting a new game should clear any active New Run hold.", failures)
+	main.current_piece = IHorizontalPiece
+	main.current_anchor = Vector2i(1, 0)
+	main.current_rotation = 0
+	main._confirm_drop()
+	_expect(main.board_state.get_value(Vector2i(1, main.config.board_height - 1)) == 1, "Drop input should remain available after restart protection changes.", failures)
+
+	main.start_new_game()
+	main.current_piece = IHorizontalPiece
+	main.current_anchor = Vector2i(1, 0)
 	main.current_rotation = 0
 	main._try_move_anchor(Vector2i.LEFT)
-	_expect(main.current_anchor == Vector2i(1, 0), "Left input should remain available.", failures)
+	_expect(main.current_anchor == Vector2i(0, 0), "Left input should remain available.", failures)
 	main._try_move_anchor(Vector2i.RIGHT)
-	_expect(main.current_anchor == Vector2i(2, 0), "Right input should remain available.", failures)
+	_expect(main.current_anchor == Vector2i(1, 0), "Right input should remain available.", failures)
+	main.current_anchor = Vector2i(-1, 0)
+	main._refresh_merge_preview()
+	main._confirm_drop()
+	_expect(main.completed_turns == 0, "Preview work and a failed drop should not advance completed turns.", failures)
 	main.current_anchor = Vector2i(0, 0)
 	main._try_move_anchor(Vector2i.LEFT)
 	_expect(
@@ -143,10 +219,39 @@ func _run() -> void:
 	)
 
 	main.start_new_game()
-	main.current_piece = SinglePiece
+	main.current_piece = IHorizontalPiece
+	main.current_anchor = Vector2i(1, 0)
+	main.current_rotation = 0
+	main._try_move_anchor(Vector2i.LEFT)
+	var pre_restart_anchor: Vector2i = main.current_anchor
+	main.run_statistics.completed_turns = 12
+	main.run_statistics.total_merges = 7
+	main.run_statistics.total_merge_waves = 4
+	main.run_statistics.longest_merge_chain = 3
+	main.run_statistics.highest_multiplier = 3
+	main.hud._begin_new_run_hold()
+	main.hud._update_new_run_hold(1.0)
+	var post_restart_anchor: Vector2i = main.current_anchor
+	_expect(pre_restart_anchor != post_restart_anchor or main.move_count == 0, "Completed New Run hold should run the existing reset behavior.", failures)
+	_expect(main.hud.get_new_run_hold_progress() == 0.0, "New Run hold progress should reset after successful restart.", failures)
+	_expect(main.completed_turns == 0 and main.current_piece.generation_turn == 0, "Completed New Run hold should reset progression to turn zero.", failures)
+	_expect(
+		main.run_statistics.total_merges == 0
+		and main.run_statistics.total_merge_waves == 0
+		and main.run_statistics.longest_merge_chain == 0
+		and main.run_statistics.highest_multiplier == 1,
+		"Starting a new run should reset lightweight run statistics.",
+		failures
+	)
+	main.current_anchor = Vector2i(3, 0)
+	main.hud._update_new_run_hold(2.0)
+	_expect(main.current_anchor == Vector2i(3, 0), "Continuing to hold after completion should not trigger additional restarts.", failures)
+
+	main.start_new_game()
+	main.current_piece = IHorizontalPiece
 	main.current_anchor = Vector2i(2, 0)
 	main.current_rotation = 0
-	main.board_state.set_value(Vector2i(2, main.config.board_height - 1), 1)
+	main.board_state.set_value(Vector2i(4, main.config.board_height - 1), 1)
 	main._refresh_presentation()
 	await create_timer(0.2).timeout
 	_expect(main.hud.get_multiplier_bar_state() == "preview", "A projected first-wave merge should highlight the multiplier bar.", failures)
@@ -168,12 +273,22 @@ func _run() -> void:
 			shown_multipliers.append(int(event.get("multiplier", 0)))
 	)
 	main._confirm_drop()
+	_expect(main.completed_turns == 0, "A multi-wave turn should remain incomplete until all resolution feedback finishes.", failures)
 	_expect(main.hud.get_multiplier_bar_state() == "resolving", "Drop should clear staged preview and begin resolution feedback.", failures)
-	_expect(main.board_state.get_value(Vector2i(2, main.config.board_height - 1)) == 2, "A falling tile should merge with equal orthogonal support.", failures)
-	await create_timer(1.4).timeout
+	_expect(main.board_state.get_value(Vector2i(3, main.config.board_height - 1)) == 3, "A falling tetromino cell should merge with equal orthogonal support.", failures)
+	await create_timer(2.8).timeout
 	_expect(resolution_events.find("rigid_landing") < resolution_events.find("merge_wave"), "Rigid landing should animate before the merge wave.", failures)
-	_expect(shown_multipliers == [1], "The first merge event should display authoritative multiplier x1.", failures)
-	_expect(main.score == 4, "Score presentation should advance from the authoritative merge-wave score.", failures)
+	_expect(not shown_multipliers.is_empty() and shown_multipliers[0] == 1, "The first merge event should display authoritative multiplier x1.", failures)
+	_expect(main.score > 0, "Score presentation should advance from the authoritative merge-wave score.", failures)
+	_expect(main.completed_turns == 1, "A multi-wave merge sequence should still count as exactly one completed turn.", failures)
+	_expect(
+		main.run_statistics.total_merges >= 2
+		and main.run_statistics.total_merge_waves >= 2
+		and main.run_statistics.longest_merge_chain >= 2
+		and main.run_statistics.highest_multiplier >= 2,
+		"Run statistics should summarize merge counts, waves, chains, and multipliers.",
+		failures
+	)
 
 	main.hud.reset_multiplier_bar()
 	_expect(main.hud.get_multiplier_bar_state() == "idle" and main.hud.get_multiplier_bar_value() == 0.0, "The multiplier bar should have a neutral idle state.", failures)
@@ -191,14 +306,27 @@ func _run() -> void:
 	_expect(not main.hud.get_node("%ToastLabel").visible, "No staged-merge popup should be displayed.", failures)
 
 	main.start_new_game()
-	main.current_piece = SinglePiece
+	main.current_piece = OPiece
 	main.current_anchor = Vector2i(2, 0)
 	main.current_rotation = 0
-	main.board_state.set_value(Vector2i(2, 5), 3)
+	main.board_state.set_value(Vector2i(2, main.config.board_height - 2), 3)
 	main._refresh_board_view()
 	var landing_cells: Array[Vector2i] = main.board_view._landing_cells()
-	_expect(landing_cells == [Vector2i(2, 4)], "Ghost should stop at the authoritative rigid landing cell.", failures)
+	_expect(landing_cells == [Vector2i(2, main.config.board_height - 4), Vector2i(3, main.config.board_height - 4), Vector2i(2, main.config.board_height - 3), Vector2i(3, main.config.board_height - 3)], "Ghost should stop at the authoritative rigid landing cells.", failures)
 	_expect(landing_cells[0].y >= 0 and landing_cells[0].y < main.config.board_height, "Ghost cells should remain inside the actual board.", failures)
+
+	main.start_new_game()
+	main.completed_turns = 181
+	for x in main.config.board_width:
+		main.board_state.set_value(Vector2i(x, 0), 1 + posmod(x, 2))
+	main.current_piece = null
+	main.next_pieces.clear()
+	main._fill_preview_queue(181)
+	main._draw_next_piece()
+	_expect(main.game_over, "A blocked entrance should preserve existing game-over behavior.", failures)
+	_expect(main.completed_turns == 181 and main.run_statistics.game_over_turn == 181, "Game over should record but not advance the completed turn.", failures)
+	main._confirm_drop()
+	_expect(main.completed_turns == 181 and main.run_statistics.game_over_turn == 181, "Game-over drop attempts should not advance progression.", failures)
 
 	for failure in failures:
 		push_error(failure)

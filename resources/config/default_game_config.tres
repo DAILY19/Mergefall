@@ -1,25 +1,40 @@
-[gd_resource type="Resource" script_class="GameConfig" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="GameConfig" load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/game_config.gd" id="1_cmy2d"]
-[ext_resource type="Resource" path="res://resources/pieces/single_crumb.tres" id="2_lwouq"]
-[ext_resource type="Resource" path="res://resources/pieces/domino_bites.tres" id="3_h1mom"]
-[ext_resource type="Resource" path="res://resources/pieces/l_snack.tres" id="4_2w3p2"]
-[ext_resource type="Resource" path="res://resources/pieces/zig_snack.tres" id="5_ew33j"]
-[ext_resource type="Resource" path="res://resources/pieces/tray_tower.tres" id="6_8u4rb"]
-[ext_resource type="Resource" path="res://resources/pieces/chunky_square.tres" id="7_vn3hy"]
+[ext_resource type="Resource" path="res://resources/pieces/i_horizontal.tres" id="2_i_h"]
+[ext_resource type="Resource" path="res://resources/pieces/i_vertical.tres" id="3_i_v"]
+[ext_resource type="Resource" path="res://resources/pieces/o.tres" id="4_o"]
+[ext_resource type="Resource" path="res://resources/pieces/t_up.tres" id="5_t_u"]
+[ext_resource type="Resource" path="res://resources/pieces/t_right.tres" id="6_t_r"]
+[ext_resource type="Resource" path="res://resources/pieces/t_down.tres" id="7_t_d"]
+[ext_resource type="Resource" path="res://resources/pieces/t_left.tres" id="8_t_l"]
+[ext_resource type="Resource" path="res://resources/pieces/s_horizontal.tres" id="9_s_h"]
+[ext_resource type="Resource" path="res://resources/pieces/s_vertical.tres" id="10_s_v"]
+[ext_resource type="Resource" path="res://resources/pieces/z_horizontal.tres" id="11_z_h"]
+[ext_resource type="Resource" path="res://resources/pieces/z_vertical.tres" id="12_z_v"]
+[ext_resource type="Resource" path="res://resources/pieces/j_up.tres" id="13_j_u"]
+[ext_resource type="Resource" path="res://resources/pieces/j_right.tres" id="14_j_r"]
+[ext_resource type="Resource" path="res://resources/pieces/j_down.tres" id="15_j_d"]
+[ext_resource type="Resource" path="res://resources/pieces/j_left.tres" id="16_j_l"]
+[ext_resource type="Resource" path="res://resources/pieces/l_up.tres" id="17_l_u"]
+[ext_resource type="Resource" path="res://resources/pieces/l_right.tres" id="18_l_r"]
+[ext_resource type="Resource" path="res://resources/pieces/l_down.tres" id="19_l_d"]
+[ext_resource type="Resource" path="res://resources/pieces/l_left.tres" id="20_l_l"]
+[ext_resource type="Resource" path="res://resources/config/default_spawn_progression.tres" id="21_progression"]
 
 [resource]
 script = ExtResource("1_cmy2d")
-board_width = 6
-board_height = 7
+board_width = 7
+board_height = 9
 cell_size = 64
 cell_gap = 8
 outer_padding = 6
 min_merge_group = 2
 score_per_rank = 10
 merge_charge_threshold = 8
-piece_definitions = [ExtResource("2_lwouq"), ExtResource("3_h1mom"), ExtResource("4_2w3p2"), ExtResource("5_ew33j"), ExtResource("6_8u4rb"), ExtResource("7_vn3hy")]
+piece_definitions = [ExtResource("2_i_h"), ExtResource("3_i_v"), ExtResource("4_o"), ExtResource("5_t_u"), ExtResource("6_t_r"), ExtResource("7_t_d"), ExtResource("8_t_l"), ExtResource("9_s_h"), ExtResource("10_s_v"), ExtResource("11_z_h"), ExtResource("12_z_v"), ExtResource("13_j_u"), ExtResource("14_j_r"), ExtResource("15_j_d"), ExtResource("16_j_l"), ExtResource("17_l_u"), ExtResource("18_l_r"), ExtResource("19_l_d"), ExtResource("20_l_l")]
 preview_piece_count = 3
+spawn_progression = ExtResource("21_progression")
 background_color = Color(0.956863, 0.937255, 0.894118, 1)
 board_color = Color(0.847059, 0.764706, 0.647059, 1)
 empty_cell_color = Color(0.913725, 0.843137, 0.74902, 1)

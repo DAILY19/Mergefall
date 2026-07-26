@@ -3,10 +3,12 @@ class_name GameConfig
 extends Resource
 
 const PieceDefinitionScript = preload("res://scripts/pieces/piece_definition.gd")
+const BOARD_WIDTH := 7
+const BOARD_HEIGHT := 9
 
 @export_group("Board")
-@export_range(4, 10, 1) var board_width := 6
-@export_range(6, 12, 1) var board_height := 7
+@export_range(4, 10, 1) var board_width := BOARD_WIDTH
+@export_range(6, 12, 1) var board_height := BOARD_HEIGHT
 @export_range(48, 120, 1) var cell_size := 64
 @export_range(4, 24, 1) var cell_gap := 8
 @export_range(12, 40, 1) var outer_padding := 20
@@ -17,6 +19,7 @@ const PieceDefinitionScript = preload("res://scripts/pieces/piece_definition.gd"
 @export_range(2, 20, 1) var merge_charge_threshold := 8
 @export var piece_definitions: Array[Resource] = []
 @export_range(1, 5, 1) var preview_piece_count := 3
+@export var spawn_progression: Resource
 
 @export_group("Visuals")
 @export var background_color := Color("f4efe4")
@@ -68,4 +71,11 @@ func validate() -> PackedStringArray:
 		issues.append("Merge flash duration must be greater than 0.")
 	if merge_charge_threshold < 2:
 		issues.append("Merge charge threshold must be at least 2.")
+	if spawn_progression == null:
+		issues.append("GameConfig requires a SpawnProgression resource.")
+	elif not spawn_progression.has_method("phase_for_completed_turn") or not spawn_progression.has_method("validate"):
+		issues.append("GameConfig.spawn_progression must be a SpawnProgression resource.")
+	else:
+		for issue in spawn_progression.validate():
+			issues.append(issue)
 	return issues

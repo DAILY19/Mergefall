@@ -242,7 +242,21 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "New Run"
+text = "NEW RUN"
+
+[node name="RestartProgressBar" type="ProgressBar" parent="SafeArea/AppStack/BottomPanel/BottomStack/SecondaryButtonsRow/RestartButton"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -5.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+max_value = 100.0
+show_percentage = false
 
 [node name="TargetLabel" type="Label" parent="SafeArea/AppStack/BottomPanel/BottomStack"]
 unique_name_in_owner = true

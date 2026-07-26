@@ -3,6 +3,8 @@ extends Resource
 
 @export_group("Identity")
 @export var display_name := "Piece"
+@export var family := ""
+@export var orientation := ""
 
 @export_group("Shape")
 @export var cells: Array[Vector2i] = [Vector2i.ZERO]
@@ -14,6 +16,17 @@ extends Resource
 
 @export_group("Preview")
 @export var preview_color := Color("ffbf69")
+
+var generation_turn := -1
+var selected_value_ranks: Array[int] = []
+
+
+func duplicate_with_values(values: Array[int]) -> PieceDefinition:
+	var copy := duplicate(true) as PieceDefinition
+	copy.cell_values.clear()
+	for value in values:
+		copy.cell_values.append(value)
+	return copy
 
 
 func get_rotated_cells(rotation_steps: int) -> Array[Vector2i]:

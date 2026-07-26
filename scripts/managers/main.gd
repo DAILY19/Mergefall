@@ -4,6 +4,7 @@ extends Control
 const SAVE_PATH := "user://mergefall.save"
 const BoardStateScript = preload("res://scripts/core/board_state.gd")
 const PieceGeneratorScript = preload("res://scripts/core/piece_generator.gd")
+const RunStatisticsScript = preload("res://scripts/core/run_statistics.gd")
 const SaveDataScript = preload("res://scripts/core/save_data.gd")
 const SaveDataStoreScript = preload("res://scripts/core/save_data_store.gd")
 const GameplayAudioScript = preload("res://scripts/audio/gameplay_audio.gd")
@@ -15,6 +16,7 @@ const GameplayAudioScript = preload("res://scripts/audio/gameplay_audio.gd")
 
 var board_state = BoardStateScript.new()
 var piece_generator = PieceGeneratorScript.new()
+var run_statistics = RunStatisticsScript.new()
 var save_store = SaveDataStoreScript.new(SAVE_PATH)
 var gameplay_audio
 var current_piece: Resource
@@ -23,13 +25,24 @@ var current_anchor := Vector2i.ZERO
 var current_rotation := 0
 var score := 0
 var best_score := 0
-var move_count := 0
 var game_over := false
+var completed_turns: int:
+	get:
+		return run_statistics.completed_turns
+	set(value):
+		run_statistics.completed_turns = value
+var move_count: int:
+	get:
+		return completed_turns
+	set(value):
+		completed_turns = value
 
 var previous_board
 var previous_score := 0
-var previous_move_count := 0
+var previous_run_statistics
 var previous_piece: Resource
+var previous_next_pieces: Array[Resource] = []
+var previous_generator_state := 0
 var previous_anchor := Vector2i.ZERO
 var previous_rotation := 0
 var can_undo := false
@@ -80,27 +93,39 @@ func _ready() -> void:
 func start_new_game() -> void:
 	if config == null:
 		return
+	if hud != null and hud.has_method("_reset_new_run_hold_visuals"):
+		hud._reset_new_run_hold_visuals()
 	resolution_sequence_id += 1
 	board_view.cancel_resolution_feedback()
 	board_state.setup(config.board_width, config.board_height)
+	run_statistics.reset()
 	score = 0
-	move_count = 0
 	resolution_score_target = 0
 	game_over = false
 	can_undo = false
+	current_piece = null
+	previous_board = null
+	previous_run_statistics = null
+	previous_piece = null
+	previous_next_pieces.clear()
 	merge_feedback_steps.clear()
 	merge_feedback_until_msec = 0
 	lock_feedback_cells.clear()
 	lock_feedback_until_msec = 0
 	next_pieces.clear()
-	_fill_preview_queue()
+	_fill_preview_queue(completed_turns)
 	_draw_next_piece()
 	_refresh_presentation()
 
 
-func _fill_preview_queue() -> void:
+func _fill_preview_queue(first_effective_turn: int) -> void:
 	while next_pieces.size() < config.preview_piece_count:
-		var piece = piece_generator.next_piece(config.piece_definitions)
+		var effective_turn := first_effective_turn + next_pieces.size()
+		var piece = piece_generator.next_piece(
+			config.piece_definitions,
+			config.spawn_progression,
+			effective_turn
+		)
 		if piece == null:
 			break
 		next_pieces.append(piece)
@@ -109,18 +134,16 @@ func _fill_preview_queue() -> void:
 func _draw_next_piece() -> void:
 	hud.reset_multiplier_bar()
 	if next_pieces.is_empty():
-		_fill_preview_queue()
+		_fill_preview_queue(completed_turns)
 	current_piece = next_pieces.pop_front() if not next_pieces.is_empty() else null
-	_fill_preview_queue()
+	_fill_preview_queue(completed_turns + 1)
 	current_rotation = 0
 	blocked_feedback_until_msec = 0
 	if current_piece == null:
-		game_over = true
-		gameplay_audio.play_game_over()
+		_mark_game_over()
 		return
 	if not _find_legal_staging_position():
-		game_over = true
-		gameplay_audio.play_game_over()
+		_mark_game_over()
 		return
 	spawn_feedback_until_msec = Time.get_ticks_msec() + 240
 
@@ -150,8 +173,10 @@ func _on_undo_pressed() -> void:
 		return
 	board_state = previous_board.duplicate_state()
 	score = previous_score
-	move_count = previous_move_count
+	run_statistics = previous_run_statistics.duplicate_state()
 	current_piece = previous_piece
+	next_pieces = previous_next_pieces.duplicate()
+	piece_generator.rng.state = previous_generator_state
 	current_anchor = previous_anchor
 	current_rotation = previous_rotation
 	game_over = false
@@ -253,8 +278,10 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 
 	previous_board = board_state.duplicate_state()
 	previous_score = score
-	previous_move_count = move_count
+	previous_run_statistics = run_statistics.duplicate_state()
 	previous_piece = current_piece
+	previous_next_pieces = next_pieces.duplicate()
+	previous_generator_state = piece_generator.rng.state
 	previous_anchor = current_anchor
 	previous_rotation = current_rotation
 	can_undo = true
@@ -271,7 +298,6 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 	var sequence_id := resolution_sequence_id
 	board_view.play_resolution_feedback(previous_board, placement_cells, placement_values, settlement)
 	_show_lock_feedback(settlement["landing_cells"])
-	move_count += 1
 	board_view.resolution_feedback_finished.connect(func() -> void:
 		if sequence_id != resolution_sequence_id:
 			return
@@ -279,12 +305,20 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 		best_score = maxi(best_score, score)
 		_save_progress()
 		hud.complete_turn_resolution()
+		run_statistics.record_completed_turn(settlement, board_state)
 		_draw_next_piece()
 		if game_over:
 			hud.show_toast("BOARD JAMMED")
 		_refresh_presentation()
 	, CONNECT_ONE_SHOT)
 	_refresh_presentation()
+
+
+func _mark_game_over() -> void:
+	game_over = true
+	run_statistics.mark_game_over()
+	if gameplay_audio != null:
+		gameplay_audio.play_game_over()
 
 
 func _on_resolution_event_started(event: Dictionary) -> void:

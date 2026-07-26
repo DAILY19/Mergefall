@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="SpawnProgression" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/spawn_progression.gd" id="1_progression"]
+[ext_resource type="Script" path="res://scripts/core/spawn_progression_phase.gd" id="2_phase"]
+
+[sub_resource type="Resource" id="Phase_0"]
+script = ExtResource("2_phase")
+min_completed_turns = 0
+displayed_values = Array[int]([2, 4])
+weights = Array[int]([70, 30])
+
+[sub_resource type="Resource" id="Phase_31"]
+script = ExtResource("2_phase")
+min_completed_turns = 31
+displayed_values = Array[int]([2, 4, 8])
+weights = Array[int]([55, 40, 5])
+
+[sub_resource type="Resource" id="Phase_71"]
+script = ExtResource("2_phase")
+min_completed_turns = 71
+displayed_values = Array[int]([2, 4, 8])
+weights = Array[int]([35, 50, 15])
+
+[sub_resource type="Resource" id="Phase_121"]
+script = ExtResource("2_phase")
+min_completed_turns = 121
+displayed_values = Array[int]([4, 8, 16])
+weights = Array[int]([55, 35, 10])
+
+[sub_resource type="Resource" id="Phase_181"]
+script = ExtResource("2_phase")
+min_completed_turns = 181
+displayed_values = Array[int]([4, 8, 16])
+weights = Array[int]([30, 50, 20])
+
+[resource]
+script = ExtResource("1_progression")
+phases = Array[Resource]([SubResource("Phase_0"), SubResource("Phase_31"), SubResource("Phase_71"), SubResource("Phase_121"), SubResource("Phase_181")])

@@ -34,6 +34,9 @@ jobs:
       - name: Run rules tests
         run: godot --headless -s res://tests/run_rules_tests.gd
 
+      - name: Run gameplay integration tests
+        run: godot --headless -s res://tests/falling_feel_test_runner.gd
+
       - name: Export Web build
         run: |
           mkdir -p build/web
