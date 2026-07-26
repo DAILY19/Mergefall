@@ -150,22 +150,28 @@ func bind_actions(
 
 
 func update_status(data: Dictionary) -> void:
-	_score_label.text = str(data.get("score", 0))
-	_best_label.text = str(data.get("best_score", 0))
-	_moves_label.text = str(data.get("move_count", 0))
-	_target_label.text = data.get("target_text", "")
-	_subtitle_label.text = data.get("subtitle_text", "")
-	_current_piece_label.text = data.get("current_piece_text", "")
+	_set_label_text(_score_label, str(data.get("score", 0)))
+	_set_label_text(_best_label, str(data.get("best_score", 0)))
+	_set_label_text(_moves_label, str(data.get("move_count", 0)))
+	_set_label_text(_target_label, data.get("target_text", ""))
+	_set_label_text(_subtitle_label, data.get("subtitle_text", ""))
+	_set_label_text(_current_piece_label, data.get("current_piece_text", ""))
 	_undo_button.disabled = not data.get("can_undo", false)
-	_drop_button.text = "DROP"
 	var movement_disabled: bool = bool(data.get("movement_disabled", false))
 	_left_button.disabled = movement_disabled
 	_right_button.disabled = movement_disabled
 
 
 func set_gameplay_rects(board_rect_global: Rect2, _drop_zone_rect_global: Rect2 = Rect2()) -> void:
+	if _board_rect_global == board_rect_global:
+		return
 	_board_rect_global = board_rect_global
 	_layout_side_controls()
+
+
+func _set_label_text(label: Label, text: String) -> void:
+	if label.text != text:
+		label.text = text
 
 
 func get_side_control_rects() -> Dictionary:

@@ -75,8 +75,10 @@ var _queue_tween: Tween
 
 func set_pieces(pieces: Array[Resource]) -> void:
 	var queue_changed := not _same_piece_queue(_pieces, pieces)
+	if not queue_changed:
+		return
 	_pieces = pieces.duplicate()
-	if queue_changed and is_inside_tree() and not Engine.is_editor_hint():
+	if is_inside_tree() and not Engine.is_editor_hint():
 		_queue_handoff_ratio = 1.0
 		if _queue_tween != null and _queue_tween.is_valid():
 			_queue_tween.kill()
@@ -87,6 +89,8 @@ func set_pieces(pieces: Array[Resource]) -> void:
 
 
 func clear_pieces() -> void:
+	if _pieces.is_empty():
+		return
 	_pieces.clear()
 	queue_redraw()
 

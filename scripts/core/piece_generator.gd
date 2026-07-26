@@ -6,31 +6,29 @@ const DEFAULT_SEED := 0x4d4552474546414c
 
 var rng := RandomNumberGenerator.new()
 var _catalog_source: Array[Resource] = []
-var _catalog_cache := {}
+var _catalog_cache: Dictionary = {}
+var _available_families: Array[String] = []
 
 
 func _init() -> void:
 	rng.seed = DEFAULT_SEED
 
 
-func next_piece(definitions: Array[Resource], progression: Resource, completed_turns: int):
-	var catalog := _build_catalog(definitions)
+func next_piece(definitions: Array[Resource], progression: Resource, completed_turns: int) -> PieceDefinition:
+	var catalog: Dictionary = _build_catalog(definitions)
 	if catalog.is_empty() or progression == null:
 		return null
-	var families := FAMILY_ORDER.filter(func(family: String) -> bool:
-		return catalog.has(family)
-	)
-	if families.is_empty():
+	if _available_families.is_empty():
 		return null
-	var family: String = families[rng.randi_range(0, families.size() - 1)]
-	var orientations: Array = catalog[family]
-	var template: Resource = orientations[rng.randi_range(0, orientations.size() - 1)]
+	var family: String = _available_families[rng.randi_range(0, _available_families.size() - 1)]
+	var orientations: Array[Resource] = catalog[family]
+	var template: PieceDefinition = orientations[rng.randi_range(0, orientations.size() - 1)]
 	var phase: Resource = progression.phase_for_completed_turn(completed_turns)
 	if phase == null:
 		return null
-	var pair := _weighted_rank_pair(phase, progression)
-	var values := _values_for_cells(template.cells, pair)
-	var piece = template.duplicate_with_values(values)
+	var pair: Array[int] = _weighted_rank_pair(phase, progression)
+	var values: Array[int] = _values_for_cells(template.cells, pair)
+	var piece: PieceDefinition = template.duplicate_with_values(values)
 	piece.generation_turn = completed_turns
 	piece.selected_value_ranks = pair.duplicate()
 	assert(_is_valid_piece_instance(piece, pair), "Generated malformed tetromino piece: %s" % piece.display_name)
@@ -52,9 +50,9 @@ func get_family_order() -> Array[String]:
 func _build_catalog(definitions: Array[Resource]) -> Dictionary:
 	if definitions == _catalog_source:
 		return _catalog_cache
-	var catalog := {}
+	var catalog: Dictionary = {}
 	for family in FAMILY_ORDER:
-		catalog[family] = []
+		catalog[family] = [] as Array[Resource]
 	for piece in definitions:
 		if piece == null:
 			continue
@@ -67,6 +65,10 @@ func _build_catalog(definitions: Array[Resource]) -> Dictionary:
 			catalog.erase(family)
 	_catalog_source = definitions.duplicate()
 	_catalog_cache = catalog
+	_available_families.clear()
+	for family in FAMILY_ORDER:
+		if catalog.has(family):
+			_available_families.append(family)
 	return catalog
 
 
@@ -130,8 +132,6 @@ func _is_valid_catalog_piece(piece: Resource) -> bool:
 
 
 func _is_valid_piece_instance(piece: Resource, allowed_ranks: Array[int]) -> bool:
-	if not _is_valid_catalog_piece(piece):
-		return false
 	if piece.cell_values.size() != piece.cells.size():
 		return false
 	for value in piece.cell_values:

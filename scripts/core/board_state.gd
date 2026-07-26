@@ -17,8 +17,8 @@ func setup(board_width: int, board_height: int) -> void:
 		cells.append(row)
 
 
-func duplicate_state():
-	var clone = get_script().new()
+func duplicate_state() -> BoardState:
+	var clone := BoardState.new()
 	clone.width = width
 	clone.height = height
 	for row in cells:
@@ -221,9 +221,6 @@ func clear_lowest_occupied_row() -> Dictionary:
 
 
 func _can_occupy_drop_offset(cells_to_drop: Array, y_offset: int) -> bool:
-	var occupied := {}
-	for cell in cells_to_drop:
-		occupied[cell + Vector2i(0, y_offset)] = true
 	for cell in cells_to_drop:
 		var position: Vector2i = cell + Vector2i(0, y_offset)
 		if position.x < 0 or position.x >= width or position.y >= height:
@@ -267,14 +264,11 @@ func _merge_wave(wave_index: int) -> Dictionary:
 	var pairs := _find_merge_pairs()
 	if pairs.is_empty():
 		return result
-	var snapshot := []
-	for row in cells:
-		snapshot.append(row.duplicate())
 	var writes: Array[Dictionary] = []
 	for pair in pairs:
 		var first: Vector2i = pair[0]
 		var second: Vector2i = pair[1]
-		var value: int = snapshot[first.y][first.x]
+		var value: int = get_value(first)
 		var target := _merge_result_position(first, second)
 		var source := second if target == first else first
 		writes.append({"source": source, "target": target, "value": value})
@@ -324,9 +318,11 @@ func _equal_component(start: Vector2i, visited: Dictionary) -> Array[Vector2i]:
 	var value := get_value(start)
 	var component: Array[Vector2i] = []
 	var queue: Array[Vector2i] = [start]
+	var queue_index := 0
 	visited[start] = true
-	while not queue.is_empty():
-		var cell: Vector2i = queue.pop_front()
+	while queue_index < queue.size():
+		var cell: Vector2i = queue[queue_index]
+		queue_index += 1
 		component.append(cell)
 		for direction in [Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP]:
 			var neighbor: Vector2i = cell + direction

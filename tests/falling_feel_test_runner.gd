@@ -342,7 +342,10 @@ func _run() -> void:
 	for failure in failures:
 		push_error(failure)
 	root.remove_child(main)
-	main.queue_free()
+	main.free()
+	main = null
+	scene = null
+	await process_frame
 	await process_frame
 	await process_frame
 	if failures.is_empty():

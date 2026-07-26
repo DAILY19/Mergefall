@@ -33,6 +33,13 @@ func _ready() -> void:
 	add_child(result_player)
 
 
+func _exit_tree() -> void:
+	for player in [input_player, motion_player, impact_player, result_player]:
+		player.stop()
+		player.stream = null
+	play_versions.clear()
+
+
 func play_move(direction: int) -> void:
 	_play(input_player, _stream(MOVE_STREAM_PATH), -18.0, 0.96 if direction < 0 else 1.04)
 
