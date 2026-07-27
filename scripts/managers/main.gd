@@ -8,6 +8,7 @@ const RunStatisticsScript = preload("res://scripts/core/run_statistics.gd")
 const SaveDataScript = preload("res://scripts/core/save_data.gd")
 const SaveDataStoreScript = preload("res://scripts/core/save_data_store.gd")
 const GameplayAudioScript = preload("res://scripts/audio/gameplay_audio.gd")
+const MobileWebDprScript = preload("res://scripts/core/mobile_web_dpr.gd")
 
 @export var config: Resource
 
@@ -59,6 +60,7 @@ var resolution_sequence_id := 0
 var resolution_score_target := 0
 var debug_metrics_enabled := false
 var debug_process_frame_count := 0
+var mobile_web_dpr_status := {}
 
 
 func _ready() -> void:
@@ -89,6 +91,9 @@ func _ready() -> void:
 		hud.clear_preview()
 		return
 	board_view.config = config
+	debug_metrics_enabled = bool(config.get("render_diagnostics_enabled")) if config != null else false
+	board_view.set_diagnostics_enabled(debug_metrics_enabled)
+	_apply_mobile_web_dpr_cap()
 	start_new_game()
 
 
@@ -214,6 +219,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(_delta: float) -> void:
 	if debug_metrics_enabled:
 		debug_process_frame_count += 1
+		board_view.diagnostics.increment("process_callbacks")
+		board_view.diagnostics.sample("active_tween_samples", board_view.is_resolution_feedback_active())
 	var blocked_active := _is_blocked_feedback_active()
 	var merge_active := _is_merge_feedback_active()
 	var motion_feedback_active := (
@@ -346,6 +353,7 @@ func _on_resolution_event_started(event: Dictionary) -> void:
 
 
 func _refresh_presentation() -> void:
+	_apply_mobile_web_dpr_cap()
 	_refresh_board_view()
 	_refresh_hud_only()
 
@@ -554,6 +562,55 @@ func _save_progress() -> void:
 func _load_save_data() -> void:
 	var data = save_store.load_data()
 	best_score = data.best_score
+
+
+func _apply_mobile_web_dpr_cap() -> void:
+	if config == null:
+		return
+	var context := _mobile_web_dpr_context()
+	mobile_web_dpr_status = MobileWebDprScript.effective_dpr(context)
+	if not bool(mobile_web_dpr_status.get("applied", false)):
+		return
+	if OS.get_name() != "Web" or not Engine.has_singleton("JavaScriptBridge"):
+		return
+	var cap: float = float(mobile_web_dpr_status.get("effective_dpr", 1.0))
+	var script := """
+	(function(cap) {
+		const canvas = document.querySelector('canvas');
+		if (!canvas) return JSON.stringify({applied:false, reason:'canvas_not_found'});
+		const rect = canvas.getBoundingClientRect();
+		if (!rect.width || !rect.height) return JSON.stringify({applied:false, reason:'empty_canvas'});
+		const width = Math.round(rect.width * cap);
+		const height = Math.round(rect.height * cap);
+		if (canvas.width !== width) canvas.width = width;
+		if (canvas.height !== height) canvas.height = height;
+		window.__mergefallDprCap = {cap, width, height, cssWidth: rect.width, cssHeight: rect.height, physicalDpr: window.devicePixelRatio || 1};
+		return JSON.stringify({applied:true, width, height, cssWidth: rect.width, cssHeight: rect.height});
+	})(%s);
+	""" % cap
+	var bridge = Engine.get_singleton("JavaScriptBridge")
+	var response = bridge.eval(script, true)
+	mobile_web_dpr_status["bridge_response"] = str(response)
+
+
+func _mobile_web_dpr_context() -> Dictionary:
+	var viewport := get_viewport_rect().size
+	var context := {
+		"platform": OS.get_name(),
+		"is_web": OS.get_name() == "Web",
+		"touch_primary": DisplayServer.is_touchscreen_available(),
+		"mobile_user_agent": OS.has_feature("mobile"),
+		"viewport": Vector2i(roundi(viewport.x), roundi(viewport.y)),
+		"device_pixel_ratio": 1.0,
+		"enabled": bool(config.get("mobile_web_dpr_cap_enabled")),
+		"cap": float(config.get("mobile_web_dpr_cap"))
+	}
+	if OS.get_name() == "Web" and Engine.has_singleton("JavaScriptBridge"):
+		var bridge = Engine.get_singleton("JavaScriptBridge")
+		context["device_pixel_ratio"] = float(bridge.eval("window.devicePixelRatio || 1", true))
+		context["touch_primary"] = bool(bridge.eval("(navigator.maxTouchPoints || 0) > 0", true))
+		context["mobile_user_agent"] = bool(bridge.eval("/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)", true))
+	return context
 
 
 func _get_configuration_warnings() -> PackedStringArray:

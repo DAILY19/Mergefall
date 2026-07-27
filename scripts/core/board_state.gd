@@ -165,7 +165,7 @@ func can_stage(cells_to_stage: Array) -> bool:
 	return true
 
 
-func can_settle(cells_to_drop: Array, values: Array = [], merge_fatigue_enabled: bool = true) -> bool:
+func can_settle(cells_to_drop: Array, values: Array = [], merge_fatigue_enabled: bool = false) -> bool:
 	if not can_stage(cells_to_drop):
 		return false
 	return bool(project_settlement(cells_to_drop, values, merge_fatigue_enabled).get("legal", false))
@@ -212,7 +212,7 @@ func get_landing_cells(cells_to_drop: Array, values: Array = []) -> Array[Vector
 
 
 ## Runs the exact settlement rules used by settle_cells without mutating this board.
-func project_settlement(cells_to_drop: Array, values: Array = [], merge_fatigue_enabled: bool = true) -> Dictionary:
+func project_settlement(cells_to_drop: Array, values: Array = [], merge_fatigue_enabled: bool = false) -> Dictionary:
 	var projection := duplicate_state()
 	var result: Dictionary = projection.settle_cells(cells_to_drop, values, 0, merge_fatigue_enabled)
 	var first_wave_merge_count := 0
@@ -228,7 +228,7 @@ func project_settlement(cells_to_drop: Array, values: Array = [], merge_fatigue_
 ## Resolves one turn from a rigid active-piece landing into a deterministic
 ## stability pipeline: complete gravity pass, then one merge wave, repeated until
 ## no tile moved and no eligible pair merged. Merges never run mid-gravity.
-func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merge_fatigue_enabled: bool = true) -> Dictionary:
+func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merge_fatigue_enabled: bool = false) -> Dictionary:
 	var result := {
 		"legal": false,
 		"score": 0,

@@ -11,6 +11,7 @@ const OPiece = preload("res://resources/pieces/o.tres")
 static func run() -> PackedStringArray:
 	var failures := PackedStringArray()
 	_test_config_dimensions(failures)
+	_test_default_config_disables_merge_fatigue(failures)
 	_test_basic_staging_and_rigid_landing(failures)
 	_test_above_board_lock_validation(failures)
 	_test_recoverable_overflow_resolution(failures)
@@ -26,6 +27,7 @@ static func run() -> PackedStringArray:
 	_test_new_results_wait_until_later_wave(failures)
 	_test_determinism(failures)
 	_test_scoring_waves(failures)
+	_test_same_turn_merge_ladder_without_fatigue(failures)
 	_test_merge_fatigue_blocks_same_turn_remerge(failures)
 	_test_merge_fatigue_allows_independent_branches(failures)
 	_test_merge_fatigue_survives_gravity_and_expires(failures)
@@ -52,6 +54,10 @@ static func _test_config_dimensions(failures: PackedStringArray) -> void:
 	_expect(board.is_inside(Vector2i(7, 9)), "Column 7 and row 9 should be playable.", failures)
 	_expect(not board.is_inside(Vector2i(8, 0)), "Column 8 should be outside the board.", failures)
 	_expect(not board.is_inside(Vector2i(0, 10)), "Row 10 should be outside the board.", failures)
+
+
+static func _test_default_config_disables_merge_fatigue(failures: PackedStringArray) -> void:
+	_expect(not Config.merge_fatigue_enabled, "Default gameplay config should disable Merge Fatigue.", failures)
 
 
 static func _test_basic_staging_and_rigid_landing(failures: PackedStringArray) -> void:
@@ -283,11 +289,24 @@ static func _test_scoring_waves(failures: PackedStringArray) -> void:
 	_expect(merge_events[0].get("multiplier", 0) == 1 and merge_events[1].get("multiplier", 0) == 2, "Merge events should carry authoritative wave multipliers.", failures)
 
 
+static func _test_same_turn_merge_ladder_without_fatigue(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(4, 6)
+	board.place_cells([Vector2i(1, 2), Vector2i(1, 3), Vector2i(1, 4), Vector2i(1, 5)], [1, 1, 1, 1])
+	var result := board.settle_cells([Vector2i(3, -1)], [9], 10, false)
+	_expect(_merge_wave_count(result) == 2, "Without fatigue, newly created merge tiles may merge again in the same resolution cycle.", failures)
+	_expect(_count_value(board, 3) == 1, "Immediate same-turn 4+4 into 8 merge should be restored when fatigue is disabled.", failures)
+	var merge_events: Array = result.get("events", []).filter(func(event: Dictionary) -> bool:
+		return event.get("type", "") == "merge_wave"
+	)
+	_expect(merge_events.size() == 2 and merge_events[1].get("multiplier", 0) == 2, "Restored same-turn ladder should retain wave multipliers.", failures)
+
+
 static func _test_merge_fatigue_blocks_same_turn_remerge(failures: PackedStringArray) -> void:
 	var board = BoardStateScript.new()
 	board.setup(4, 6)
 	board.place_cells([Vector2i(1, 2), Vector2i(1, 3), Vector2i(1, 4), Vector2i(1, 5)], [1, 1, 1, 1])
-	var result := board.settle_cells([Vector2i(3, -1)], [9], 10)
+	var result := board.settle_cells([Vector2i(3, -1)], [9], 10, true)
 	_expect(_merge_wave_count(result) == 1, "Fatigue should prevent newly created tiles from merging again in the same turn.", failures)
 	_expect(_count_value(board, 2) == 2, "Two fatigued merge results should remain as separate tiles.", failures)
 	_expect(_count_value(board, 3) == 0, "Fatigue should stop the immediate 4+4 into 8 cascade.", failures)
@@ -297,7 +316,7 @@ static func _test_merge_fatigue_allows_independent_branches(failures: PackedStri
 	var board = BoardStateScript.new()
 	board.setup(6, 6)
 	board.place_cells([Vector2i(0, 5), Vector2i(1, 5), Vector2i(4, 5), Vector2i(5, 5)], [1, 1, 3, 3])
-	var result := board.settle_cells([Vector2i(2, -1)], [9], 10)
+	var result := board.settle_cells([Vector2i(2, -1)], [9], 10, true)
 	_expect(result.get("merged", false), "Existing independent branches should still merge during the same wave.", failures)
 	_expect(result.get("steps", []).size() == 2, "Two unrelated merge branches should resolve simultaneously.", failures)
 	_expect(_count_value(board, 2) == 1 and _count_value(board, 4) == 1, "Independent merge results should both be produced.", failures)
@@ -307,7 +326,7 @@ static func _test_merge_fatigue_survives_gravity_and_expires(failures: PackedStr
 	var board = BoardStateScript.new()
 	board.setup(5, 7)
 	board.place_cells([Vector2i(1, 5), Vector2i(2, 5), Vector2i(1, 6), Vector2i(2, 6), Vector2i(1, 4)], [1, 1, 1, 1, 6])
-	var result := board.settle_cells([Vector2i(4, -1)], [9], 10)
+	var result := board.settle_cells([Vector2i(4, -1)], [9], 10, true)
 	_expect(_merge_wave_count(result) == 1, "Fatigue should persist across gravity after merge support is removed.", failures)
 	_expect(_count_value(board, 2) == 2, "Fatigued results should fall normally without immediately merging.", failures)
 	var later := board.resolve_merges(2, 10)

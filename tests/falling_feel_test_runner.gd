@@ -4,6 +4,7 @@ const IHorizontalPiece = preload("res://resources/pieces/i_horizontal.tres")
 const IVerticalPiece = preload("res://resources/pieces/i_vertical.tres")
 const OPiece = preload("res://resources/pieces/o.tres")
 const TUpPiece = preload("res://resources/pieces/t_up.tres")
+const MobileWebDprScript = preload("res://scripts/core/mobile_web_dpr.gd")
 
 
 func _init() -> void:
@@ -46,6 +47,26 @@ func _run() -> void:
 	_expect(main.hud.get_node("%RestartButton").text == "NEW RUN", "Restart control should use the idle NEW RUN label.", failures)
 	_expect(main.hud.get_new_run_hold_progress() == 0.0, "New Run hold progress should begin at zero.", failures)
 	_expect(not main.board_view.clip_contents, "The active-piece view should not clip above-board cells.", failures)
+	_expect(not main.board_view.diagnostics.enabled, "Render diagnostics should be disabled by default.", failures)
+	main.board_view.set_diagnostics_enabled(true)
+	main.board_view.reset_diagnostics()
+	main.board_view._request_redraw()
+	var diagnostics_report: Dictionary = main.board_view.diagnostics_report()
+	_expect(diagnostics_report.get("redraw_requests", 0) == 1, "Diagnostics should count redraw requests when explicitly enabled.", failures)
+	_expect(diagnostics_report.get("state", "") == "STATIONARY", "Idle main scene should classify as STATIONARY.", failures)
+	main.board_view.set_diagnostics_enabled(false)
+	_expect(not main.board_view.diagnostics.enabled, "Diagnostics should be disable-able after measurement.", failures)
+	var mobile_context := {
+		"is_web": true,
+		"touch_primary": true,
+		"mobile_user_agent": true,
+		"viewport": Vector2i(390, 844),
+		"device_pixel_ratio": 3.0,
+		"enabled": true,
+		"cap": 2.0
+	}
+	var mobile_dpr := MobileWebDprScript.effective_dpr(mobile_context)
+	_expect(mobile_dpr.get("applied", false), "Mobile viewport Web context should apply the DPR cap in the shared DPR helper.", failures)
 	var initial_board_rect: Rect2 = main.board_view.get_board_rect()
 	var initial_drop_zone_rect: Rect2 = main.board_view.get_drop_zone_rect(initial_board_rect)
 	var initial_metrics: Dictionary = main.board_view._calculate_gameplay_metrics()
@@ -287,18 +308,18 @@ func _run() -> void:
 	main._confirm_drop()
 	_expect(main.completed_turns == 0, "A resolving turn should remain incomplete until all resolution feedback finishes.", failures)
 	_expect(main.hud.get_multiplier_bar_state() == "resolving", "Drop should clear staged preview and begin resolution feedback.", failures)
-	_expect(main.board_state.get_value(Vector2i(3, main.config.board_height - 1)) == 2, "A falling tetromino cell should merge with equal orthogonal support without remerging while fatigued.", failures)
+	_expect(main.board_state.get_value(Vector2i(3, main.config.board_height - 1)) == 3, "A falling tetromino cell should be able to remerge in the same resolution cycle when fatigue is disabled.", failures)
 	await create_timer(2.8).timeout
 	_expect(resolution_events.find("rigid_landing") < resolution_events.find("merge_wave"), "Rigid landing should animate before the merge wave.", failures)
 	_expect(not shown_multipliers.is_empty() and shown_multipliers[0] == 1, "The first merge event should display authoritative multiplier x1.", failures)
 	_expect(main.score > 0, "Score presentation should advance from the authoritative merge-wave score.", failures)
-	_expect(main.completed_turns == 1, "A fatigued merge sequence should still count as exactly one completed turn.", failures)
+	_expect(main.completed_turns == 1, "A restored same-turn merge sequence should still count as exactly one completed turn.", failures)
 	_expect(
 		main.run_statistics.total_merges >= 1
 		and main.run_statistics.total_merge_waves >= 1
 		and main.run_statistics.longest_merge_chain >= 1
 		and main.run_statistics.highest_multiplier >= 1,
-		"Run statistics should summarize fatigued merge counts, waves, chains, and multipliers.",
+		"Run statistics should summarize restored merge counts, waves, chains, and multipliers.",
 		failures
 	)
 

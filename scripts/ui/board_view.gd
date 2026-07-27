@@ -6,86 +6,87 @@ signal resolution_feedback_finished
 signal resolution_event_started(event: Dictionary)
 
 const BoardStateScript = preload("res://scripts/core/board_state.gd")
+const RenderDiagnosticsScript = preload("res://scripts/core/render_diagnostics.gd")
 
 @export var config: Resource:
 	set(value):
 		config = value
 		_clear_style_caches()
 		_mark_layout_dirty()
-		queue_redraw()
+		_request_redraw()
 
 @export_group("Layout")
 @export_range(0, 320, 1) var top_padding := 148.0:
 	set(value):
 		top_padding = value
 		_mark_layout_dirty()
-		queue_redraw()
+		_request_redraw()
 
 @export_range(0, 320, 1) var bottom_padding := 16.0:
 	set(value):
 		bottom_padding = value
 		_mark_layout_dirty()
-		queue_redraw()
+		_request_redraw()
 
 @export_range(0, 200, 1) var board_corner_radius := 24:
 	set(value):
 		board_corner_radius = value
-		queue_redraw()
+		_request_redraw()
 
 @export_range(0, 120, 1) var cell_corner_radius := 16:
 	set(value):
 		cell_corner_radius = value
 		_clear_style_caches()
-		queue_redraw()
+		_request_redraw()
 
 @export_range(3, 5, 1) var drop_zone_rows := 5:
 	set(value):
 		drop_zone_rows = value
 		_mark_layout_dirty()
-		queue_redraw()
+		_request_redraw()
 
 @export_group("Art")
 @export var visual_set: MergefallVisualSet:
 	set(value):
 		visual_set = value
-		queue_redraw()
+		_request_redraw()
 
 @export_group("Typography")
 @export var value_font: Font:
 	set(value):
 		value_font = value
-		queue_redraw()
+		_request_redraw()
 
 @export_range(8, 64, 1) var value_font_size := 24:
 	set(value):
 		value_font_size = value
-		queue_redraw()
+		_request_redraw()
 
 @export_group("Frame")
 @export var frame_fill_color := Color(0.86, 0.76, 0.64, 0.92):
 	set(value):
 		frame_fill_color = value
-		queue_redraw()
+		_request_redraw()
 
 @export var frame_border_color := Color(1.0, 0.97, 0.92, 0.7):
 	set(value):
 		frame_border_color = value
-		queue_redraw()
+		_request_redraw()
 
 @export var shadow_color := Color(0.19, 0.13, 0.09, 0.18):
 	set(value):
 		shadow_color = value
-		queue_redraw()
+		_request_redraw()
 
 @export var drop_zone_fill_color := Color(0.90, 0.83, 0.72, 0.70):
 	set(value):
 		drop_zone_fill_color = value
-		queue_redraw()
+		_request_redraw()
 
 @export var drop_zone_border_color := Color(0.57, 0.42, 0.27, 0.34):
 	set(value):
 		drop_zone_border_color = value
-		queue_redraw()
+		_request_redraw()
 
 var _board_state: BoardState
 var _current_piece: Resource
@@ -120,6 +121,7 @@ var _text_metrics_cache: Dictionary = {}
 var debug_metrics_enabled := false
 var debug_draw_count := 0
 var debug_layout_recalculation_count := 0
+var diagnostics = RenderDiagnosticsScript.new()
 
 const RESOLUTION_FALL_SEC := 0.28
 const RESOLUTION_CONTACT_SEC := 0.14
@@ -141,7 +143,7 @@ const MAX_CELL_GAP := 10.0
 
 func set_board_state(board_state: BoardState) -> void:
 	_board_state = board_state
-	queue_redraw()
+	_request_redraw()
 
 
 func set_active_piece(
@@ -156,7 +158,7 @@ func set_active_piece(
 	_current_rotation = rot
 	_game_over = game_over
 	_spawn_feedback_ratio = clampf(spawn_ratio, 0.0, 1.0)
-	queue_redraw()
+	_request_redraw()
 
 
 func play_move_feedback(offset: Vector2i) -> void:
@@ -220,13 +222,53 @@ func play_resolution_feedback(
 		_resolution_event_segments.clear()
 		_resolution_event_boards.clear()
 		_resolution_progress = 1.0
-		queue_redraw()
+		_request_redraw()
 		resolution_feedback_finished.emit()
 	)
 
 
 func is_resolution_feedback_active() -> bool:
 	return _resolution_board != null
+
+
+func set_diagnostics_enabled(enabled: bool) -> void:
+	debug_metrics_enabled = enabled
+	if enabled:
+		diagnostics.begin()
+	else:
+		diagnostics.enabled = false
+
+
+func reset_diagnostics() -> void:
+	diagnostics.reset()
+
+
+func diagnostics_report() -> Dictionary:
+	return diagnostics.report(current_visual_state())
+
+
+func current_visual_state() -> int:
+	var dropping := false
+	var falling := false
+	var merging := _merge_feedback_ratio > 0.0 or not _merge_feedback_steps.is_empty()
+	if _resolution_board != null:
+		var elapsed := _resolution_progress * _resolution_duration
+		var segment := _resolution_segment_at(elapsed)
+		var event: Dictionary = segment.get("event", {})
+		match event.get("type", ""):
+			"merge_wave":
+				merging = true
+			"gravity_step":
+				falling = true
+			"rigid_landing":
+				dropping = true
+	if _lock_feedback_ratio > 0.0:
+		dropping = true
+	return RenderDiagnosticsScript.classify_visual_state({
+		"merging": merging,
+		"falling": falling,
+		"dropping": dropping
+	})
 
 
 func cancel_resolution_feedback() -> void:
@@ -241,7 +283,7 @@ func cancel_resolution_feedback() -> void:
 	_resolution_event_segments.clear()
 	_resolution_event_boards.clear()
 	_resolution_progress = 1.0
-	queue_redraw()
+	_request_redraw()
 
 
 func set_feedback(
@@ -260,7 +302,7 @@ func set_feedback(
 	for cell in lock_cells:
 		_lock_feedback_cells.append(cell)
 	_lock_feedback_ratio = clampf(lock_feedback_ratio, 0.0, 1.0)
-	queue_redraw()
+	_request_redraw()
 
 
 func set_layout_rect(layout_rect: Rect2) -> void:
@@ -268,12 +310,13 @@ func set_layout_rect(layout_rect: Rect2) -> void:
 		return
 	_layout_rect_override = layout_rect
 	_mark_layout_dirty()
-	queue_redraw()
+	_request_redraw()
 
 
 func _draw() -> void:
 	if debug_metrics_enabled:
 		debug_draw_count += 1
+	diagnostics.increment("draw_calls")
 	if config == null:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("202020"), true)
 		return
@@ -298,12 +341,14 @@ func _draw() -> void:
 				continue
 			var cell_rect := get_cell_rect(board_rect, cell_pos)
 			_draw_cell(cell_rect, displayed_board.get_value(cell_pos))
+			diagnostics.increment("cells_drawn")
 	if displayed_board.has_method("get_overflow_positions"):
 		var drop_zone_rect := get_drop_zone_rect(board_rect)
 		for cell_pos: Vector2i in displayed_board.get_overflow_positions():
 			var cell_rect := get_cell_rect(board_rect, cell_pos)
 			if cell_rect.intersects(drop_zone_rect, true):
 				_draw_cell(cell_rect, displayed_board.get_value(cell_pos))
+				diagnostics.increment("cells_drawn")
 
 	if _resolution_board != null:
 		_draw_resolution_feedback(board_rect)
@@ -341,6 +386,7 @@ func _draw() -> void:
 					get_cell_rect(board_rect, pos),
 					rotated_values[index]
 				)
+				diagnostics.increment("ghost_draws")
 
 	var staging_offset := _staging_visual_offset(board_rect, preview_cells)
 	_draw_piece_connections(
@@ -357,6 +403,7 @@ func _draw() -> void:
 			continue
 		var preview_rect := _animated_active_rect(_offset_rect(get_cell_rect(board_rect, pos), staging_offset), board_rect, preview_cells)
 		_draw_preview_cell(preview_rect, _current_piece.cell_values[index], can_place_preview)
+		diagnostics.increment("active_piece_draws")
 
 
 func get_board_rect() -> Rect2:
@@ -410,6 +457,7 @@ func _calculate_gameplay_metrics() -> Dictionary:
 		return _layout_metrics
 	_layout_dirty = false
 	debug_layout_recalculation_count += 1
+	diagnostics.increment("layout_recalculations")
 	_layout_metrics = _empty_layout_metrics()
 	if config == null:
 		return _layout_metrics
@@ -492,10 +540,12 @@ func _mark_layout_dirty() -> void:
 func _draw_drop_zone_backing(drop_rect: Rect2) -> void:
 	if drop_rect.size == Vector2.ZERO:
 		return
+	diagnostics.increment("drop_zone_draws")
 	draw_style_box(_make_fill_style(drop_zone_fill_color, drop_zone_border_color, 2, mini(board_corner_radius, 14)), drop_rect)
 
 
 func _draw_board_backing(board_rect: Rect2) -> void:
+	diagnostics.increment("board_draws")
 	draw_style_box(_make_fill_style(config.board_color, Color.TRANSPARENT, 0, board_corner_radius), board_rect)
 	_draw_art_overlay(visual_set.board_overlay if visual_set != null else null, board_rect)
 
@@ -657,6 +707,7 @@ func _draw_gravity_event(board_rect: Rect2, event: Dictionary, ratio: float) -> 
 		var moving_rect := from_rect
 		moving_rect.position = from_rect.position.lerp(to_rect.position, eased)
 		_draw_resolution_cell(moving_rect, value, false, 1.0)
+		diagnostics.increment("falling_cell_draws")
 
 func _draw_merge_group(board_rect: Rect2, group: Dictionary, ratio: float) -> void:
 	for step in group.get("steps", []):
@@ -664,6 +715,7 @@ func _draw_merge_group(board_rect: Rect2, group: Dictionary, ratio: float) -> vo
 
 
 func _draw_merge_step(board_rect: Rect2, step: Dictionary, ratio: float) -> void:
+	diagnostics.increment("merge_feedback_draws")
 	var source: Vector2i = step.get("source", Vector2i.ZERO)
 	var anchor: Vector2i = step.get("anchor", Vector2i.ZERO)
 	if not _board_state.is_inside(source) or not _board_state.is_inside(anchor):
@@ -869,17 +921,17 @@ func _restart_motion_tween(
 func _set_active_motion_ratio(ratio: float) -> void:
 	if _active_motion_offset != Vector2.ZERO:
 		_active_motion_offset = _active_motion_offset.normalized() * ratio
-	queue_redraw()
+	_request_redraw()
 
 
 func _set_rotation_snap_ratio(ratio: float) -> void:
 	_rotation_snap_ratio = ratio
-	queue_redraw()
+	_request_redraw()
 
 
 func _set_resolution_progress(progress: float) -> void:
 	_resolution_progress = progress
-	queue_redraw()
+	_request_redraw()
 
 
 func _draw_cell_text(cell_rect: Rect2, value: int, text_color: Color) -> void:
@@ -939,6 +991,7 @@ func _landing_projection() -> Dictionary:
 	var cells := _current_cells()
 	if cells.is_empty():
 		return {"landing_cells": cells, "steps": []}
+	diagnostics.increment("projection_calls")
 	return _board_state.project_settlement(
 		cells,
 		_current_piece.get_rotated_values(_current_rotation)
@@ -988,6 +1041,7 @@ func _fitted_value_font_size(font: Font, label: String, cell_rect: Rect2) -> int
 func _text_metrics(font: Font, label: String, font_size: int) -> Dictionary:
 	var key := "%d:%s:%d" % [font.get_instance_id(), label, font_size]
 	if _text_metrics_cache.has(key):
+		diagnostics.increment("text_metric_cache_hits")
 		return _text_metrics_cache[key]
 	var size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 	var metrics := {
@@ -996,6 +1050,7 @@ func _text_metrics(font: Font, label: String, font_size: int) -> Dictionary:
 		"ascent": font.get_ascent(font_size)
 	}
 	_text_metrics_cache[key] = metrics
+	diagnostics.increment("text_metric_cache_misses")
 	return metrics
 
 
@@ -1018,6 +1073,11 @@ func _make_cell_style(value: int) -> StyleBoxFlat:
 	)
 	_cell_style_cache[value] = style
 	return style
+
+
+func _request_redraw() -> void:
+	diagnostics.increment("redraw_requests")
+	queue_redraw()
 
 
 func _clear_style_caches() -> void:

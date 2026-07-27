@@ -17,10 +17,15 @@ const BOARD_HEIGHT := 10
 @export_range(2, 6, 1) var min_merge_group := 2
 @export_range(1, 10, 1) var score_per_rank := 10
 @export_range(2, 20, 1) var merge_charge_threshold := 8
-@export var merge_fatigue_enabled := true
+@export var merge_fatigue_enabled := false
 @export var piece_definitions: Array[Resource] = []
 @export_range(1, 5, 1) var preview_piece_count := 3
 @export var spawn_progression: Resource
+
+@export_group("Diagnostics")
+@export var render_diagnostics_enabled := false
+@export var mobile_web_dpr_cap_enabled := true
+@export_range(1.0, 4.0, 0.5) var mobile_web_dpr_cap := 2.0
 
 @export_group("Visuals")
 @export var background_color := Color("f4efe4")
@@ -72,6 +77,8 @@ func validate() -> PackedStringArray:
 		issues.append("Merge flash duration must be greater than 0.")
 	if merge_charge_threshold < 2:
 		issues.append("Merge charge threshold must be at least 2.")
+	if mobile_web_dpr_cap_enabled and mobile_web_dpr_cap < 1.0:
+		issues.append("Mobile Web DPR cap must be at least 1.0 when enabled.")
 	if spawn_progression == null:
 		issues.append("GameConfig requires a SpawnProgression resource.")
 	elif not spawn_progression.has_method("phase_for_completed_turn") or not spawn_progression.has_method("validate"):
