@@ -438,9 +438,9 @@ func _capture_idle_frames() -> void:
 func _capture_transition_checkpoint(label: String) -> void:
 	if not _transition_trace_enabled:
 		return
-	var board_rect := board_view.get_board_rect()
-	var drop_rect := board_view.get_drop_zone_rect(board_rect)
-	var viewport_rect := get_viewport().get_visible_rect()
+	var board_rect: Rect2 = board_view.get_board_rect()
+	var drop_rect: Rect2 = board_view.get_drop_zone_rect(board_rect)
+	var viewport_rect: Rect2 = get_viewport().get_visible_rect()
 	var snapshot := {
 		"trace": _transition_trace_id,
 		"checkpoint": label,
