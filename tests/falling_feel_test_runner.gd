@@ -106,8 +106,8 @@ func _run() -> void:
 	_expect(staged_cells == [Vector2i(3, -5), Vector2i(3, -4), Vector2i(3, -3), Vector2i(3, -2)], "Spawn positioning should keep the vertical I fully visible while aligned with the board entrance.", failures)
 	var board_rect: Rect2 = main.board_view.get_board_rect()
 	var drop_zone_rect: Rect2 = main.board_view.get_drop_zone_rect(board_rect)
-	var top_staged_rect: Rect2 = main.board_view.get_cell_rect(board_rect, staged_cells[0])
-	var bottom_staged_rect: Rect2 = main.board_view.get_cell_rect(board_rect, staged_cells[-1])
+	var top_staged_rect: Rect2 = main.board_view.get_staged_cell_rect(board_rect, staged_cells[0], staged_cells)
+	var bottom_staged_rect: Rect2 = main.board_view.get_staged_cell_rect(board_rect, staged_cells[-1], staged_cells)
 	_expect(
 		top_staged_rect.position.y >= drop_zone_rect.position.y and bottom_staged_rect.end.y <= drop_zone_rect.end.y,
 		"The complete vertical piece should fit in the visible drop zone (%s to %s within %s)." % [top_staged_rect, bottom_staged_rect, drop_zone_rect],
@@ -118,6 +118,7 @@ func _run() -> void:
 		"The staged piece should leave visible space before the board entrance.",
 		failures
 	)
+	_verify_drop_zone_geometry_for_all_orientations(main, failures)
 
 	main.start_new_game()
 	main.current_piece = TUpPiece
@@ -363,3 +364,66 @@ func _run() -> void:
 func _expect(condition: bool, message: String, failures: PackedStringArray) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _verify_drop_zone_geometry_for_all_orientations(main, failures: PackedStringArray) -> void:
+	var original_slot: Rect2 = main.hud.get_board_layout_rect()
+	var viewport_slots: Array[Vector2] = [
+		Vector2(360, 560),
+		Vector2(375, 570),
+		Vector2(390, 590),
+		Vector2(412, 620),
+		Vector2(430, 640),
+		Vector2(720, 760)
+	]
+	for slot_size in viewport_slots:
+		main.board_view.set_layout_rect(Rect2(Vector2.ZERO, slot_size))
+		for piece in main.config.piece_definitions:
+			main.start_new_game()
+			main.current_piece = piece
+			_expect(main._find_legal_staging_position(), "%s should find a legal staged spawn." % piece.display_name, failures)
+			main._refresh_board_view()
+			var board_rect: Rect2 = main.board_view.get_board_rect()
+			var drop_zone_rect: Rect2 = main.board_view.get_drop_zone_rect(board_rect)
+			var staged_cells: Array[Vector2i] = main._current_cells()
+			var visual_bounds := _staged_visual_bounds(main, board_rect, staged_cells)
+			var top_margin := visual_bounds.position.y - drop_zone_rect.position.y
+			var bottom_margin := drop_zone_rect.end.y - visual_bounds.end.y
+			_expect(drop_zone_rect.size.x == board_rect.size.x, "Drop zone should match board width at %s." % slot_size, failures)
+			_expect(_rect_is_integer(board_rect), "Board rect should be pixel-aligned at %s." % slot_size, failures)
+			_expect(_rect_is_integer(drop_zone_rect), "Drop zone rect should be pixel-aligned at %s." % slot_size, failures)
+			_expect(
+				visual_bounds.position.y >= drop_zone_rect.position.y - 0.5 and visual_bounds.end.y <= drop_zone_rect.end.y + 0.5,
+				"%s should not clip in the drop zone at %s." % [piece.display_name, slot_size],
+				failures
+			)
+			_expect(
+				absf(top_margin - bottom_margin) <= 1.5,
+				"%s should be vertically centered by occupied bounds at %s." % [piece.display_name, slot_size],
+				failures
+			)
+	main.board_view.set_layout_rect(original_slot)
+
+
+func _staged_visual_bounds(main, board_rect: Rect2, staged_cells: Array[Vector2i]) -> Rect2:
+	var first_rect: Rect2 = main.board_view.get_staged_cell_rect(board_rect, staged_cells[0], staged_cells)
+	var min_x := first_rect.position.x
+	var min_y := first_rect.position.y
+	var max_x := first_rect.end.x
+	var max_y := first_rect.end.y
+	for cell in staged_cells:
+		var rect: Rect2 = main.board_view.get_staged_cell_rect(board_rect, cell, staged_cells)
+		min_x = minf(min_x, rect.position.x)
+		min_y = minf(min_y, rect.position.y)
+		max_x = maxf(max_x, rect.end.x)
+		max_y = maxf(max_y, rect.end.y)
+	return Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y))
+
+
+func _rect_is_integer(rect: Rect2) -> bool:
+	return (
+		is_equal_approx(rect.position.x, roundf(rect.position.x))
+		and is_equal_approx(rect.position.y, roundf(rect.position.y))
+		and is_equal_approx(rect.size.x, roundf(rect.size.x))
+		and is_equal_approx(rect.size.y, roundf(rect.size.y))
+	)

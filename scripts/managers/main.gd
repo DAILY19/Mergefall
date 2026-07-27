@@ -57,6 +57,8 @@ var was_merge_feedback_active := false
 var was_motion_feedback_active := false
 var resolution_sequence_id := 0
 var resolution_score_target := 0
+var debug_metrics_enabled := false
+var debug_process_frame_count := 0
 
 
 func _ready() -> void:
@@ -75,7 +77,7 @@ func _ready() -> void:
 	gameplay_audio.name = "GameplayAudio"
 	add_child(gameplay_audio)
 	resized.connect(_refresh_presentation)
-	set_process(true)
+	set_process(false)
 	_load_save_data()
 	if config == null:
 		push_error("Main scene requires a GameConfig resource.")
@@ -146,6 +148,7 @@ func _draw_next_piece() -> void:
 		_mark_game_over()
 		return
 	spawn_feedback_until_msec = Time.get_ticks_msec() + 240
+	_update_process_activity()
 
 
 func _on_restart_pressed() -> void:
@@ -209,6 +212,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
+	if debug_metrics_enabled:
+		debug_process_frame_count += 1
 	var blocked_active := _is_blocked_feedback_active()
 	var merge_active := _is_merge_feedback_active()
 	var motion_feedback_active := (
@@ -227,6 +232,7 @@ func _process(_delta: float) -> void:
 	was_blocked_feedback_active = blocked_active
 	was_merge_feedback_active = merge_active
 	was_motion_feedback_active = motion_feedback_active
+	_update_process_activity()
 
 
 func _try_move_anchor(offset: Vector2i) -> void:
@@ -480,6 +486,7 @@ func _show_blocked_feedback() -> void:
 	blocked_feedback_until_msec = Time.get_ticks_msec() + 700
 	if gameplay_audio != null:
 		gameplay_audio.play_blocked()
+	_update_process_activity()
 
 
 func _is_blocked_feedback_active() -> bool:
@@ -511,6 +518,7 @@ func _spawn_feedback_ratio() -> float:
 func _show_lock_feedback(cells: Array[Vector2i]) -> void:
 	lock_feedback_cells = _typed_vector2i_array(cells)
 	lock_feedback_until_msec = Time.get_ticks_msec() + 220
+	_update_process_activity()
 
 
 func _lock_feedback_ratio() -> float:
@@ -522,6 +530,15 @@ func _lock_feedback_ratio() -> float:
 	if ratio <= 0.0 and not lock_feedback_cells.is_empty():
 		lock_feedback_cells.clear()
 	return ratio
+
+
+func _update_process_activity() -> void:
+	set_process(
+		_is_blocked_feedback_active()
+		or _is_merge_feedback_active()
+		or _spawn_feedback_ratio() > 0.0
+		or _lock_feedback_ratio() > 0.0
+	)
 
 
 func _save_progress() -> void:

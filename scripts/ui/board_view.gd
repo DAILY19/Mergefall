@@ -116,6 +116,10 @@ var _resolution_progress := 1.0
 var _resolution_duration := 1.0
 var _resolution_tween: Tween
 var _cell_style_cache: Dictionary = {}
+var _text_metrics_cache: Dictionary = {}
+var debug_metrics_enabled := false
+var debug_draw_count := 0
+var debug_layout_recalculation_count := 0
 
 const RESOLUTION_FALL_SEC := 0.28
 const RESOLUTION_CONTACT_SEC := 0.14
@@ -127,7 +131,8 @@ const MIN_EDGE_MARGIN := 8.0
 const MAX_EDGE_MARGIN := 18.0
 const MIN_INTER_REGION_GAP := 16.0
 const MAX_INTER_REGION_GAP := 48.0
-const DROP_ZONE_TILE_ROWS := 4.75
+const DROP_ZONE_FOOTPRINT_ROWS := 4
+const DROP_ZONE_VERTICAL_PADDING_GAPS := 5.0
 const MIN_TILE_SIZE := 28.0
 const GAP_TO_TILE_RATIO := 0.115
 const MIN_CELL_GAP := 4.0
@@ -267,6 +272,8 @@ func set_layout_rect(layout_rect: Rect2) -> void:
 
 
 func _draw() -> void:
+	if debug_metrics_enabled:
+		debug_draw_count += 1
 	if config == null:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("202020"), true)
 		return
@@ -329,18 +336,20 @@ func _draw() -> void:
 					rotated_values[index]
 				)
 
+	var staging_offset := _staging_visual_offset(board_rect, preview_cells)
 	_draw_piece_connections(
 		board_rect,
 		preview_cells,
 		_preview_fill_color(can_place_preview),
 		4,
-		true
+		true,
+		staging_offset
 	)
 	for index in preview_cells.size():
 		var pos := preview_cells[index]
 		if not _is_drawable_staging_cell(pos):
 			continue
-		var preview_rect := _animated_active_rect(get_cell_rect(board_rect, pos), board_rect, preview_cells)
+		var preview_rect := _animated_active_rect(_offset_rect(get_cell_rect(board_rect, pos), staging_offset), board_rect, preview_cells)
 		_draw_preview_cell(preview_rect, _current_piece.cell_values[index], can_place_preview)
 
 
@@ -352,11 +361,11 @@ func get_drop_zone_rect(board_rect: Rect2 = Rect2()) -> Rect2:
 	var metrics := _calculate_gameplay_metrics()
 	if board_rect.size != Vector2.ZERO and board_rect != metrics.get("board_rect", Rect2()):
 		var grid := _grid_metrics(board_rect)
-		var drop_height: float = DROP_ZONE_TILE_ROWS * grid["cell"] + floor(DROP_ZONE_TILE_ROWS) * grid["gap"]
-		return Rect2(
+		var drop_height: float = _drop_zone_height(grid["cell"], grid["gap"])
+		return _snap_rect(Rect2(
 			Vector2(board_rect.position.x, board_rect.position.y - metrics.get("structure_gap", grid["gap"]) - drop_height),
 			Vector2(board_rect.size.x, drop_height)
-		)
+		))
 	return metrics.get("drop_zone_rect", Rect2())
 
 
@@ -364,13 +373,17 @@ func get_cell_rect(board_rect: Rect2, cell_pos: Vector2i) -> Rect2:
 	var metrics := _grid_metrics(board_rect)
 	var scaled_cell: float = metrics["cell"]
 	var scaled_gap: float = metrics["gap"]
-	return Rect2(
+	return _snap_rect(Rect2(
 		board_rect.position + Vector2(
 			scaled_gap + cell_pos.x * (scaled_cell + scaled_gap),
 			scaled_gap + cell_pos.y * (scaled_cell + scaled_gap)
 		),
 		Vector2.ONE * scaled_cell
-	)
+	))
+
+
+func get_staged_cell_rect(board_rect: Rect2, cell_pos: Vector2i, piece_cells: Array[Vector2i]) -> Rect2:
+	return _offset_rect(get_cell_rect(board_rect, cell_pos), _staging_visual_offset(board_rect, piece_cells))
 
 
 func _grid_metrics(board_rect: Rect2) -> Dictionary:
@@ -390,6 +403,7 @@ func _calculate_gameplay_metrics() -> Dictionary:
 	if not _layout_dirty:
 		return _layout_metrics
 	_layout_dirty = false
+	debug_layout_recalculation_count += 1
 	_layout_metrics = _empty_layout_metrics()
 	if config == null:
 		return _layout_metrics
@@ -404,25 +418,25 @@ func _calculate_gameplay_metrics() -> Dictionary:
 	var vertical_gap := clampf(width_tile * GAP_TO_TILE_RATIO, MIN_CELL_GAP, MAX_CELL_GAP)
 	var width_limited_tile := (usable_width - float(config.board_width + 1) * vertical_gap) / float(config.board_width)
 	var structure_gap := clampf(layout_rect.size.y * 0.028, MIN_INTER_REGION_GAP, MAX_INTER_REGION_GAP)
-	var drop_height_units := DROP_ZONE_TILE_ROWS
+	var drop_height_units := float(DROP_ZONE_FOOTPRINT_ROWS)
 	var vertical_units := float(config.board_height) + drop_height_units
 	var vertical_gaps: float = float(config.board_height + 1) + floor(drop_height_units) + 1.0
 	var height_limited_tile: float = (
 		layout_rect.size.y - structure_gap - vertical_gaps * vertical_gap
 	) / vertical_units
 	var tile_size := maxf(MIN_TILE_SIZE, floor(minf(width_limited_tile, height_limited_tile)))
-	var cell_gap := clampf(tile_size * GAP_TO_TILE_RATIO, MIN_CELL_GAP, MAX_CELL_GAP)
+	var cell_gap := roundf(clampf(tile_size * GAP_TO_TILE_RATIO, MIN_CELL_GAP, MAX_CELL_GAP))
 	var board_width := float(config.board_width) * tile_size + float(config.board_width + 1) * cell_gap
 	var board_height := float(config.board_height) * tile_size + float(config.board_height + 1) * cell_gap
-	var drop_height: float = DROP_ZONE_TILE_ROWS * tile_size + floor(DROP_ZONE_TILE_ROWS) * cell_gap
+	var drop_height: float = _drop_zone_height(tile_size, cell_gap)
 	var structure_height: float = drop_height + structure_gap + board_height
-	var structure_x := layout_rect.position.x + (layout_rect.size.x - board_width) * 0.5
-	var structure_y := layout_rect.position.y + maxf(0.0, (layout_rect.size.y - structure_height) * 0.5)
-	var drop_rect := Rect2(Vector2(structure_x, structure_y), Vector2(board_width, drop_height))
-	var board_rect := Rect2(
+	var structure_x := roundf(layout_rect.position.x + (layout_rect.size.x - board_width) * 0.5)
+	var structure_y := roundf(layout_rect.position.y + maxf(0.0, (layout_rect.size.y - structure_height) * 0.5))
+	var drop_rect := _snap_rect(Rect2(Vector2(structure_x, structure_y), Vector2(board_width, drop_height)))
+	var board_rect := _snap_rect(Rect2(
 		Vector2(structure_x, drop_rect.end.y + structure_gap),
 		Vector2(board_width, board_height)
-	)
+	))
 	_layout_metrics = {
 		"tile_size": tile_size,
 		"cell_gap": cell_gap,
@@ -449,6 +463,20 @@ func _empty_layout_metrics() -> Dictionary:
 		"structure_gap": 0.0,
 		"structure_height": 0.0
 	}
+
+
+func _drop_zone_height(tile_size: float, cell_gap: float) -> float:
+	return float(DROP_ZONE_FOOTPRINT_ROWS) * tile_size + DROP_ZONE_VERTICAL_PADDING_GAPS * cell_gap
+
+
+func _snap_rect(rect: Rect2) -> Rect2:
+	var position := Vector2(roundf(rect.position.x), roundf(rect.position.y))
+	var end := Vector2(roundf(rect.end.x), roundf(rect.end.y))
+	return Rect2(position, end - position)
+
+
+func _offset_rect(rect: Rect2, offset: Vector2) -> Rect2:
+	return Rect2(rect.position + offset, rect.size)
 
 
 func _mark_layout_dirty() -> void:
@@ -518,7 +546,8 @@ func _draw_piece_connections(
 	piece_cells: Array[Vector2i],
 	fill_color: Color,
 	inset: int,
-	animate_active: bool = false
+	animate_active: bool = false,
+	visual_offset: Vector2 = Vector2.ZERO
 ) -> void:
 	var occupied := {}
 	for cell in piece_cells:
@@ -526,12 +555,12 @@ func _draw_piece_connections(
 	for cell in piece_cells:
 		if not _is_drawable_staging_cell(cell):
 			continue
-		var rect := get_cell_rect(board_rect, cell)
+		var rect := _offset_rect(get_cell_rect(board_rect, cell), visual_offset)
 		if animate_active:
 			rect = _animated_active_rect(rect, board_rect, piece_cells)
 		rect = rect.grow(-float(inset))
 		if occupied.has(cell + Vector2i.RIGHT):
-			var right_rect := get_cell_rect(board_rect, cell + Vector2i.RIGHT)
+			var right_rect := _offset_rect(get_cell_rect(board_rect, cell + Vector2i.RIGHT), visual_offset)
 			if animate_active:
 				right_rect = _animated_active_rect(right_rect, board_rect, piece_cells)
 			right_rect = right_rect.grow(-float(inset))
@@ -544,7 +573,7 @@ func _draw_piece_connections(
 				true
 			)
 		if occupied.has(cell + Vector2i.DOWN):
-			var down_rect := get_cell_rect(board_rect, cell + Vector2i.DOWN)
+			var down_rect := _offset_rect(get_cell_rect(board_rect, cell + Vector2i.DOWN), visual_offset)
 			if animate_active:
 				down_rect = _animated_active_rect(down_rect, board_rect, piece_cells)
 			down_rect = down_rect.grow(-float(inset))
@@ -800,6 +829,19 @@ func _animated_active_rect(
 	return Rect2(center - rect.size * scale_factor * 0.5, rect.size * scale_factor)
 
 
+func _staging_visual_offset(board_rect: Rect2, piece_cells: Array[Vector2i]) -> Vector2:
+	if piece_cells.is_empty():
+		return Vector2.ZERO
+	var drop_rect := get_drop_zone_rect(board_rect)
+	var bounds := _piece_bounds(piece_cells)
+	var top_left := get_cell_rect(board_rect, bounds.position)
+	var bottom_right := get_cell_rect(board_rect, bounds.end - Vector2i.ONE)
+	var footprint := Rect2(top_left.position, bottom_right.end - top_left.position)
+	var content := drop_rect.grow(-_grid_metrics(board_rect).get("gap", 0.0))
+	var target_y := roundf(content.position.y + (content.size.y - footprint.size.y) * 0.5)
+	return Vector2(0.0, target_y - footprint.position.y)
+
+
 func _is_drawable_staging_cell(pos: Vector2i) -> bool:
 	return pos.x >= 0 and pos.x < config.board_width and pos.y >= -drop_zone_rows and pos.y < config.board_height
 
@@ -838,10 +880,13 @@ func _draw_cell_text(cell_rect: Rect2, value: int, text_color: Color) -> void:
 	var font := value_font if value_font != null else ThemeDB.fallback_font
 	var label := str(int(pow(2.0, value)))
 	var dynamic_font_size := _fitted_value_font_size(font, label, cell_rect)
-	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, dynamic_font_size).x
+	var metrics := _text_metrics(font, label, dynamic_font_size)
+	var width: float = metrics["width"]
+	var height: float = metrics["height"]
+	var ascent: float = metrics["ascent"]
 	var text_position := Vector2(
-		cell_rect.position.x + (cell_rect.size.x - width) * 0.5,
-		cell_rect.position.y + cell_rect.size.y * 0.64
+		roundf(cell_rect.position.x + (cell_rect.size.x - width) * 0.5),
+		roundf(cell_rect.position.y + (cell_rect.size.y - height) * 0.5 + ascent)
 	)
 	var outline_color := Color(1, 1, 1, 0.82) if text_color.get_luminance() < 0.5 else Color(0.08, 0.06, 0.04, 0.72)
 	draw_string_outline(
@@ -909,7 +954,7 @@ func _piece_bounds(cells: Array[Vector2i]) -> Rect2i:
 
 func _draw_art_overlay(texture: Texture2D, rect: Rect2, draw_modulate: Color = Color.WHITE) -> void:
 	if texture != null:
-		draw_texture_rect(texture, rect, true, draw_modulate)
+		draw_texture_rect(texture, _snap_rect(rect), true, draw_modulate)
 
 
 func _typed_vector2i_array(source: Array) -> Array[Vector2i]:
@@ -920,7 +965,7 @@ func _typed_vector2i_array(source: Array) -> Array[Vector2i]:
 
 
 func _draw_occupied_cell_highlight(cell_rect: Rect2) -> void:
-	var inset := maxf(3.0, cell_rect.size.x * 0.08)
+	var inset := roundf(maxf(3.0, cell_rect.size.x * 0.08))
 	var top_start := cell_rect.position + Vector2(inset, inset)
 	var top_end := Vector2(cell_rect.end.x - inset, cell_rect.position.y + inset)
 	draw_line(top_start, top_end, Color(1, 1, 1, 0.42), 2.0, true)
@@ -932,6 +977,20 @@ func _fitted_value_font_size(font: Font, label: String, cell_rect: Rect2) -> int
 	while font_size > 13 and font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > max_width:
 		font_size -= 1
 	return font_size
+
+
+func _text_metrics(font: Font, label: String, font_size: int) -> Dictionary:
+	var key := "%d:%s:%d" % [font.get_instance_id(), label, font_size]
+	if _text_metrics_cache.has(key):
+		return _text_metrics_cache[key]
+	var size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var metrics := {
+		"width": size.x,
+		"height": font.get_height(font_size),
+		"ascent": font.get_ascent(font_size)
+	}
+	_text_metrics_cache[key] = metrics
+	return metrics
 
 
 func _redraw_cell_value(board_rect: Rect2, cell_pos: Vector2i) -> void:
@@ -957,6 +1016,7 @@ func _make_cell_style(value: int) -> StyleBoxFlat:
 
 func _clear_style_caches() -> void:
 	_cell_style_cache.clear()
+	_text_metrics_cache.clear()
 
 
 func _make_preview_style(is_valid: bool) -> StyleBoxFlat:
