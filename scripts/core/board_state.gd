@@ -6,6 +6,9 @@ var height := 0
 var cells: Array[Array] = []
 var cell_sources: Array[Array] = []
 var cell_fatigues: Array[Array] = []
+var overflow_cells := {}
+var overflow_sources := {}
+var overflow_fatigues := {}
 
 const COMPONENT_DIRECTIONS: Array[Vector2i] = [Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP]
 
@@ -16,6 +19,9 @@ func setup(board_width: int, board_height: int) -> void:
 	cells.clear()
 	cell_sources.clear()
 	cell_fatigues.clear()
+	overflow_cells.clear()
+	overflow_sources.clear()
+	overflow_fatigues.clear()
 	for y in height:
 		var row: Array[int] = []
 		var source_row: Array[int] = []
@@ -39,6 +45,9 @@ func duplicate_state() -> BoardState:
 		clone.cell_sources.append(source_row.duplicate())
 	for fatigue_row in cell_fatigues:
 		clone.cell_fatigues.append(fatigue_row.duplicate())
+	clone.overflow_cells = overflow_cells.duplicate()
+	clone.overflow_sources = overflow_sources.duplicate()
+	clone.overflow_fatigues = overflow_fatigues.duplicate()
 	return clone
 
 
@@ -46,14 +55,49 @@ func is_inside(position: Vector2i) -> bool:
 	return position.x >= 0 and position.x < width and position.y >= 0 and position.y < height
 
 
+func is_within_horizontal_bounds(position: Vector2i) -> bool:
+	return position.x >= 0 and position.x < width
+
+
+func is_visible_board_cell(position: Vector2i) -> bool:
+	return is_inside(position)
+
+
+func is_valid_logical_cell(position: Vector2i) -> bool:
+	return is_within_horizontal_bounds(position) and position.y < height
+
+
+func has_stable_overflow() -> bool:
+	return not overflow_cells.is_empty()
+
+
+func get_overflow_positions() -> Array[Vector2i]:
+	var positions: Array[Vector2i] = []
+	for position: Vector2i in overflow_cells.keys():
+		positions.append(position)
+	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	return positions
+
+
 func get_value(position: Vector2i) -> int:
+	if position.y < 0 and overflow_cells.has(position):
+		return int(overflow_cells[position])
 	if not is_inside(position):
 		return -1
 	return cells[position.y][position.x]
 
 
 func set_value(position: Vector2i, value: int) -> void:
-	if is_inside(position):
+	if position.y < 0 and is_within_horizontal_bounds(position):
+		if value > 0:
+			overflow_cells[position] = value
+		else:
+			overflow_cells.erase(position)
+			overflow_sources.erase(position)
+			overflow_fatigues.erase(position)
+	elif is_inside(position):
 		cells[position.y][position.x] = value
 		if cell_sources.size() == height:
 			cell_sources[position.y][position.x] = 0
@@ -62,24 +106,38 @@ func set_value(position: Vector2i, value: int) -> void:
 
 
 func get_source(position: Vector2i) -> int:
+	if position.y < 0:
+		return int(overflow_sources.get(position, 0))
 	if not is_inside(position) or cell_sources.size() != height:
 		return 0
 	return cell_sources[position.y][position.x]
 
 
 func set_source(position: Vector2i, source: int) -> void:
-	if is_inside(position) and cell_sources.size() == height:
+	if position.y < 0 and overflow_cells.has(position):
+		if source > 0:
+			overflow_sources[position] = source
+		else:
+			overflow_sources.erase(position)
+	elif is_inside(position) and cell_sources.size() == height:
 		cell_sources[position.y][position.x] = source
 
 
 func is_fatigued(position: Vector2i) -> bool:
+	if position.y < 0:
+		return bool(overflow_fatigues.get(position, false))
 	if not is_inside(position) or cell_fatigues.size() != height:
 		return false
 	return bool(cell_fatigues[position.y][position.x])
 
 
 func set_fatigued(position: Vector2i, fatigued: bool) -> void:
-	if is_inside(position) and cell_fatigues.size() == height:
+	if position.y < 0 and overflow_cells.has(position):
+		if fatigued:
+			overflow_fatigues[position] = true
+		else:
+			overflow_fatigues.erase(position)
+	elif is_inside(position) and cell_fatigues.size() == height:
 		cell_fatigues[position.y][position.x] = fatigued
 
 
@@ -95,10 +153,14 @@ func can_place(cells_to_place: Array) -> bool:
 ## Staging permits cells above the visible board. Horizontal overflow, cells below
 ## the floor, and overlap with visible settled cells are still illegal.
 func can_stage(cells_to_stage: Array) -> bool:
+	var seen := {}
 	for cell: Vector2i in cells_to_stage:
-		if cell.x < 0 or cell.x >= width or cell.y >= height:
+		if not is_valid_logical_cell(cell):
 			return false
-		if cell.y >= 0 and get_value(cell) != 0:
+		if seen.has(cell):
+			return false
+		seen[cell] = true
+		if get_value(cell) > 0:
 			return false
 	return true
 
@@ -136,7 +198,7 @@ func get_rigid_landing_cells(cells_to_drop: Array) -> Array[Vector2i]:
 	var landing: Array[Vector2i] = []
 	for cell in cells_to_drop:
 		var landed: Vector2i = cell + Vector2i(0, distance)
-		if landed.y < 0 or not is_inside(landed):
+		if not is_valid_logical_cell(landed):
 			return []
 		landing.append(landed)
 	return landing
@@ -174,7 +236,8 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merg
 		"steps": [],
 		"events": [],
 		"landing_cells": [],
-		"settled_cells": []
+		"settled_cells": [],
+		"has_stable_overflow": false
 	}
 	if cells_to_drop.is_empty() or not can_stage(cells_to_drop):
 		return result
@@ -188,6 +251,9 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merg
 	var original_fatigues: Array[Array] = []
 	for fatigue_row in cell_fatigues:
 		original_fatigues.append(fatigue_row.duplicate())
+	var original_overflow_cells := overflow_cells.duplicate()
+	var original_overflow_sources := overflow_sources.duplicate()
+	var original_overflow_fatigues := overflow_fatigues.duplicate()
 	_clear_fatigues()
 
 	var landing := get_rigid_landing_cells(cells_to_drop)
@@ -195,6 +261,9 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merg
 		cells = original_cells
 		cell_sources = original_sources
 		cell_fatigues = original_fatigues
+		overflow_cells = original_overflow_cells
+		overflow_sources = original_overflow_sources
+		overflow_fatigues = original_overflow_fatigues
 		return result
 
 	for index in landing.size():
@@ -244,6 +313,7 @@ func settle_cells(cells_to_drop: Array, values: Array, score_per_rank: int, merg
 	_clear_sources()
 	_clear_fatigues()
 	result["events"].append({"type": "stable"})
+	result["has_stable_overflow"] = has_stable_overflow()
 	return result
 
 
@@ -278,9 +348,9 @@ func clear_lowest_occupied_row() -> Dictionary:
 func _can_occupy_drop_offset(cells_to_drop: Array, y_offset: int) -> bool:
 	for cell: Vector2i in cells_to_drop:
 		var position: Vector2i = cell + Vector2i(0, y_offset)
-		if position.x < 0 or position.x >= width or position.y >= height:
+		if not is_valid_logical_cell(position):
 			return false
-		if position.y >= 0 and get_value(position) != 0:
+		if get_value(position) > 0:
 			return false
 	return true
 
@@ -290,7 +360,7 @@ func _gravity_pass() -> Dictionary:
 	var moves: Array[Dictionary] = []
 	for x in width:
 		var write_y := height - 1
-		for y in range(height - 1, -1, -1):
+		for y in range(height - 1, _min_occupied_y_for_column(x) - 1, -1):
 			var value := get_value(Vector2i(x, y))
 			if value <= 0:
 				continue
@@ -352,28 +422,26 @@ func _merge_wave(wave_index: int, merge_fatigue_enabled: bool = false) -> Dictio
 func _find_merge_pairs() -> Array[Array]:
 	var visited := {}
 	var pairs: Array[Array] = []
-	for y in height:
-		for x in width:
-			var start := Vector2i(x, y)
-			if visited.has(start) or get_value(start) <= 0:
+	for start: Vector2i in _occupied_positions_top_down():
+		if visited.has(start) or get_value(start) <= 0:
+			continue
+		var component := _equal_component(start, visited)
+		if component.size() < 2:
+			continue
+		component.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			return _cell_priority_less(a, b)
+		)
+		var used := {}
+		for cell: Vector2i in component:
+			if used.has(cell):
 				continue
-			var component := _equal_component(start, visited)
-			if component.size() < 2:
-				continue
-			component.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-				return _cell_priority_less(a, b)
-			)
-			var used := {}
-			for cell: Vector2i in component:
-				if used.has(cell):
+			for neighbor: Vector2i in _ordered_equal_neighbors(cell, used):
+				if not _can_merge_pair(cell, neighbor):
 					continue
-				for neighbor: Vector2i in _ordered_equal_neighbors(cell, used):
-					if not _can_merge_pair(cell, neighbor):
-						continue
-					used[cell] = true
-					used[neighbor] = true
-					pairs.append([cell, neighbor])
-					break
+				used[cell] = true
+				used[neighbor] = true
+				pairs.append([cell, neighbor])
+				break
 	return pairs
 
 
@@ -394,12 +462,14 @@ func _clear_sources() -> void:
 	for y in cell_sources.size():
 		for x in cell_sources[y].size():
 			cell_sources[y][x] = 0
+	overflow_sources.clear()
 
 
 func _clear_fatigues() -> void:
 	for y in cell_fatigues.size():
 		for x in cell_fatigues[y].size():
 			cell_fatigues[y][x] = false
+	overflow_fatigues.clear()
 
 
 func _equal_component(start: Vector2i, visited: Dictionary) -> Array[Vector2i]:
@@ -414,7 +484,7 @@ func _equal_component(start: Vector2i, visited: Dictionary) -> Array[Vector2i]:
 		component.append(cell)
 		for direction in COMPONENT_DIRECTIONS:
 			var neighbor: Vector2i = cell + direction
-			if not is_inside(neighbor) or visited.has(neighbor) or get_value(neighbor) != value:
+			if not is_valid_logical_cell(neighbor) or visited.has(neighbor) or get_value(neighbor) != value:
 				continue
 			visited[neighbor] = true
 			queue.append(neighbor)
@@ -439,7 +509,7 @@ func _ordered_equal_neighbors(cell: Vector2i, used: Dictionary) -> Array[Vector2
 	var away := -toward
 	for direction in [Vector2i.DOWN, toward, away, Vector2i.UP]:
 		var neighbor: Vector2i = cell + direction
-		if is_inside(neighbor) and not used.has(neighbor) and get_value(neighbor) == get_value(cell):
+		if is_valid_logical_cell(neighbor) and not used.has(neighbor) and get_value(neighbor) == get_value(cell):
 			candidates.append(neighbor)
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		var ap := _neighbor_priority(cell, a, toward)
@@ -516,13 +586,38 @@ func has_any_moves(piece_definitions: Array) -> bool:
 		var max_anchor_x: int = width - bounds.position.x - bounds.size.x
 		for x in range(min_anchor_x, max_anchor_x + 1):
 			var anchor := Vector2i(x, stage_y)
-			if can_settle(_translated(rotated, anchor), values):
+			var projection := project_settlement(_translated(rotated, anchor), values)
+			if projection.get("legal", false) and not projection.get("has_stable_overflow", false):
 				return true
 	return false
 
 
 func resolve_merges(_min_group_size: int, _score_per_rank: int) -> Dictionary:
 	return _merge_wave(1)
+
+
+func _min_occupied_y_for_column(x: int) -> int:
+	var min_y := 0
+	for position: Vector2i in overflow_cells.keys():
+		if position.x == x:
+			min_y = mini(min_y, position.y)
+	return min_y
+
+
+func _occupied_positions_top_down() -> Array[Vector2i]:
+	var positions: Array[Vector2i] = []
+	for position: Vector2i in overflow_cells.keys():
+		if get_value(position) > 0:
+			positions.append(position)
+	for y in height:
+		for x in width:
+			var position := Vector2i(x, y)
+			if get_value(position) > 0:
+				positions.append(position)
+	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	return positions
 
 
 func _translated(source: Array[Vector2i], anchor: Vector2i) -> Array[Vector2i]:

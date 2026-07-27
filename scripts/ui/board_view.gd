@@ -298,6 +298,12 @@ func _draw() -> void:
 				continue
 			var cell_rect := get_cell_rect(board_rect, cell_pos)
 			_draw_cell(cell_rect, displayed_board.get_value(cell_pos))
+	if displayed_board.has_method("get_overflow_positions"):
+		var drop_zone_rect := get_drop_zone_rect(board_rect)
+		for cell_pos: Vector2i in displayed_board.get_overflow_positions():
+			var cell_rect := get_cell_rect(board_rect, cell_pos)
+			if cell_rect.intersects(drop_zone_rect, true):
+				_draw_cell(cell_rect, displayed_board.get_value(cell_pos))
 
 	if _resolution_board != null:
 		_draw_resolution_feedback(board_rect)

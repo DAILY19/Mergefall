@@ -313,7 +313,10 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 		_save_progress()
 		hud.complete_turn_resolution()
 		run_statistics.record_completed_turn(settlement, board_state)
-		_draw_next_piece()
+		if board_state.has_stable_overflow():
+			_mark_game_over()
+		else:
+			_draw_next_piece()
 		if game_over:
 			hud.show_toast("BOARD JAMMED")
 		_refresh_presentation()
@@ -462,7 +465,8 @@ func _find_legal_staging_position() -> bool:
 			for cell in rotated:
 				staged_cells.append(cell + anchor)
 			var values: Array = current_piece.get_rotated_values(rotation_index)
-			if board_state.can_settle(staged_cells, values):
+			var projection: Dictionary = board_state.project_settlement(staged_cells, values)
+			if projection.get("legal", false) and not projection.get("has_stable_overflow", false):
 				current_rotation = rotation_index
 				current_anchor = anchor
 				return true

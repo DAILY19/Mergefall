@@ -12,6 +12,11 @@ static func run() -> PackedStringArray:
 	var failures := PackedStringArray()
 	_test_config_dimensions(failures)
 	_test_basic_staging_and_rigid_landing(failures)
+	_test_above_board_lock_validation(failures)
+	_test_recoverable_overflow_resolution(failures)
+	_test_unrecoverable_overflow_resolution(failures)
+	_test_overflow_merge_interaction(failures)
+	_test_overflow_projection_matches_commit(failures)
 	_test_independent_gravity_and_split(failures)
 	_test_gravity_event_payload(failures)
 	_test_gravity_distances_and_sequence(failures)
@@ -61,6 +66,75 @@ static func _test_basic_staging_and_rigid_landing(failures: PackedStringArray) -
 	var committed := board.settle_cells(staged, [1, 2], 10)
 	_expect(committed["legal"], "Partially above-board staging should settle when a path exists.", failures)
 	_expect(committed["landing_cells"] == projection["landing_cells"], "Committed landing should match ghost projection.", failures)
+
+
+static func _test_above_board_lock_validation(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(4, 3)
+	for x in board.width:
+		board.set_value(Vector2i(x, 0), 7 + x)
+		board.set_value(Vector2i(x, 1), 11 + x)
+		board.set_value(Vector2i(x, 2), 15 + x)
+	board.set_value(Vector2i(1, 0), 0)
+	_expect(board.can_stage([Vector2i(1, -1)]), "A piece with one cell above row 0 may stage and lock.", failures)
+	_expect(board.can_settle([Vector2i(1, -1)], [1]), "A one-cell overflow lock should be allowed for resolution.", failures)
+	_expect(board.can_settle([Vector2i(1, -2), Vector2i(1, -1)], [1, 2]), "Multiple above-board cells may lock.", failures)
+	_expect(not board.can_settle([Vector2i(-1, -1)], [1]), "Horizontal left overflow remains illegal.", failures)
+	_expect(not board.can_settle([Vector2i(4, -1)], [1]), "Horizontal right overflow remains illegal.", failures)
+	_expect(not board.can_settle([Vector2i(1, 3)], [1]), "Bottom overflow remains illegal.", failures)
+	_expect(not board.can_settle([Vector2i(1, -1), Vector2i(1, -1)], [1, 2]), "Duplicate overflow coordinates are rejected.", failures)
+
+
+static func _test_recoverable_overflow_resolution(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(2, 2)
+	board.set_value(Vector2i(0, 0), 4)
+	board.set_value(Vector2i(0, 1), 8)
+	board.set_value(Vector2i(1, 1), 9)
+	var result := board.settle_cells([Vector2i(1, -1)], [3], 10)
+	_expect(result.get("legal", false), "Recoverable overflow should be a legal settlement.", failures)
+	_expect(not result.get("has_stable_overflow", true), "Recovered overflow should finish with no stable negative-row cells.", failures)
+	_expect(board.get_value(Vector2i(1, 0)) == 3, "An overflow cell should fall into row 0 when space is available.", failures)
+	_expect(not board.has_stable_overflow(), "The board should clear temporary overflow after recovery.", failures)
+
+
+static func _test_unrecoverable_overflow_resolution(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(2, 2)
+	board.place_cells([Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)], [1, 2, 3, 4])
+	var result := board.settle_cells([Vector2i(0, -1), Vector2i(1, -1)], [5, 6], 10)
+	_expect(result.get("legal", false), "Unrecoverable overflow should still be allowed to lock.", failures)
+	_expect(result.get("has_stable_overflow", false), "Stable negative-row cells should be reported for game over after resolution.", failures)
+	_expect(board.get_value(Vector2i(0, -1)) == 5 and board.get_value(Vector2i(1, -1)) == 6, "The final jammed overflow state should remain intact.", failures)
+	_expect(_event_types(result).back() == "stable", "Overflow loss should be evaluated after stability.", failures)
+
+
+static func _test_overflow_merge_interaction(failures: PackedStringArray) -> void:
+	var horizontal = BoardStateScript.new()
+	horizontal.setup(3, 2)
+	horizontal.place_cells([Vector2i(0, -1), Vector2i(1, -1)], [1, 1])
+	var result := horizontal.resolve_merges(2, 10)
+	_expect(result.get("merged", false), "Equal overflow neighbors should merge during resolution.", failures)
+	_expect(horizontal.get_value(Vector2i(1, -1)) == 2 or horizontal.get_value(Vector2i(0, -1)) == 2, "Overflow merge result should remain at a logical overflow coordinate when still jammed.", failures)
+
+	var vertical = BoardStateScript.new()
+	vertical.setup(2, 2)
+	vertical.place_cells([Vector2i(0, -1), Vector2i(0, 0)], [4, 4])
+	var row_zero_result := vertical.resolve_merges(2, 10)
+	_expect(row_zero_result.get("merged", false), "Row -1 and row 0 adjacency should merge when values match.", failures)
+	_expect(vertical.get_value(Vector2i(0, 0)) == 5, "A row -1/row 0 vertical merge should anchor on row 0.", failures)
+
+
+static func _test_overflow_projection_matches_commit(failures: PackedStringArray) -> void:
+	var board = BoardStateScript.new()
+	board.setup(2, 2)
+	board.place_cells([Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)], [1, 2, 3, 4])
+	var projection := board.project_settlement([Vector2i(0, -1)], [5])
+	_expect(projection.get("legal", false), "Projection should not block a losing overflow placement.", failures)
+	_expect(projection.get("has_stable_overflow", false), "Projection should identify stable overflow loss.", failures)
+	var actual := board.settle_cells([Vector2i(0, -1)], [5], 10)
+	_expect(actual.get("has_stable_overflow", false) == projection.get("has_stable_overflow", false), "Projected overflow loss should match actual resolution.", failures)
+	_expect(actual.get("landing_cells", []) == projection.get("landing_cells", []), "Projected overflow landing should match actual landing.", failures)
 
 
 static func _test_independent_gravity_and_split(failures: PackedStringArray) -> void:
@@ -369,8 +443,9 @@ static func _test_game_over_uses_settlement(failures: PackedStringArray) -> void
 	var board = BoardStateScript.new()
 	board.setup(4, 4)
 	_expect(board.has_any_moves([IHorizontalPiece, IVerticalPiece, OPiece]), "An empty tetromino lane should have a legal settlement.", failures)
-	for x in board.width:
-		board.set_value(Vector2i(x, 0), 1 + posmod(x, 2))
+	for y in board.height:
+		for x in board.width:
+			board.set_value(Vector2i(x, y), 10 + y * board.width + x)
 	_expect(not board.has_any_moves([IHorizontalPiece, IVerticalPiece, OPiece]), "Game over should occur when no tetromino has a legal settlement path.", failures)
 
 

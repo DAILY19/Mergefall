@@ -329,8 +329,9 @@ func _run() -> void:
 
 	main.start_new_game()
 	main.completed_turns = 181
-	for x in main.config.board_width:
-		main.board_state.set_value(Vector2i(x, 0), 1 + posmod(x, 2))
+	for y in main.config.board_height:
+		for x in main.config.board_width:
+			main.board_state.set_value(Vector2i(x, y), 10 + y * main.config.board_width + x)
 	main.current_piece = null
 	main.next_pieces.clear()
 	main._fill_preview_queue(181)
