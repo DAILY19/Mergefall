@@ -4,13 +4,13 @@ extends Node
 # A deliberately small palette from the local Universal Sound Effects packs.
 # Movement shares one sound with a slight directional pitch shift so repeated
 # play stays cohesive instead of becoming a wall of unrelated cues.
-const MOVE_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_6.wav"
-const ROTATE_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Click_8.wav"
-const DROP_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Menus/UI_Swish_2.wav"
-const LAND_STREAM_PATH := "res://assets/audio/sfx/Game Sound Effects 2 - Universal Sound Effects/WAV/GS2_Land.wav"
+const MOVE_STREAM_PATH := "res://assets/audio/ui/GS2_Wood_Close_1.wav"
+const ROTATE_STREAM_PATH := "res://assets/audio/ui/GS2_Wood_Open_1.wav"
+const DROP_STREAM_PATH := "res://assets/audio/gameplay/GS1_Slash_1.wav"
+const LAND_STREAM_PATH := "res://assets/audio/gameplay/GS2_Land.wav"
 const BLOCKED_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Button Clicks/UI_Button_Disable.wav"
-const MERGE_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 1 - Universal Sound Effects/WAV/Puzzle Game/UI_Puzzle_Game_6.wav"
-const GAME_OVER_STREAM_PATH := "res://assets/audio/sfx/User Interface Pack 2 - Universal Sound Effects/WAV/UI2_Decline_2.wav"
+const MERGE_STREAM_PATH := "res://assets/audio/gameplay/GS1_Spell_Energy.wav"
+const GAME_OVER_STREAM_PATH := "res://assets/audio/ui/GS2_Treasure_Chest_Unlock_Open.wav"
 
 const BLOCKED_COOLDOWN_MSEC := 140
 

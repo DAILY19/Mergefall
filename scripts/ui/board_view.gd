@@ -542,6 +542,7 @@ func _draw_drop_zone_backing(drop_rect: Rect2) -> void:
 		return
 	diagnostics.increment("drop_zone_draws")
 	draw_style_box(_make_fill_style(drop_zone_fill_color, drop_zone_border_color, 2, mini(board_corner_radius, 14)), drop_rect)
+	_draw_art_overlay(visual_set.preview_card_texture if visual_set != null else null, drop_rect, Color(1, 1, 1, 0.42))
 
 
 func _draw_board_backing(board_rect: Rect2) -> void:
@@ -559,16 +560,20 @@ func _draw_cell(cell_rect: Rect2, value: int) -> void:
 
 	if value > 0:
 		_draw_occupied_cell_highlight(cell_rect)
+		_draw_sword_icon(cell_rect, value, 0.86)
+		_draw_value_badge(cell_rect, value, _tile_text_color(value))
 		var text_color := _tile_text_color(value)
-		_draw_cell_text(cell_rect, value, text_color)
+		if _sword_icon(value) == null:
+			_draw_cell_text(cell_rect, value, text_color)
 
 
 func _draw_preview_cell(cell_rect: Rect2, value: int, is_valid: bool) -> void:
 	draw_style_box(_make_preview_style(is_valid), cell_rect)
 	if visual_set != null:
 		_draw_art_overlay(visual_set.active_piece_cell_overlay, cell_rect)
+	_draw_sword_icon(cell_rect, value, 0.78 if is_valid else 0.42)
 	var preview_text_color: Color = config.tile_text_dark if is_valid else config.tile_text_light
-	_draw_cell_text(cell_rect, value, preview_text_color)
+	_draw_value_badge(cell_rect, value, preview_text_color)
 
 
 func _draw_lock_flash(cell_rect: Rect2) -> void:
@@ -592,9 +597,10 @@ func _draw_ghost_cell(cell_rect: Rect2, value: int) -> void:
 		_connected_corner_radius(cell_rect)
 	)
 	draw_style_box(ghost_style, ghost_rect)
+	_draw_sword_icon(ghost_rect, value, 0.28)
 	var text_color: Color = config.tile_text_dark
 	text_color.a = 0.62
-	_draw_cell_text(ghost_rect, value, text_color)
+	_draw_value_badge(ghost_rect, value, text_color)
 
 
 func _draw_piece_connections(
@@ -779,7 +785,8 @@ func _draw_resolution_cell(cell_rect: Rect2, value: int, is_merge: bool, emphasi
 		_make_fill_style(fill, outline, 4 if is_merge else 3, mini(cell_corner_radius, 8)),
 		cell_rect.grow(-2.0)
 	)
-	_draw_cell_text(cell_rect.grow(-2.0), value, config.tile_text_dark)
+	_draw_sword_icon(cell_rect.grow(-2.0), value, 0.88 * emphasis)
+	_draw_value_badge(cell_rect.grow(-2.0), value, config.tile_text_dark)
 
 
 func _build_resolution_event_segments(events: Array[Dictionary]) -> Array[Dictionary]:
@@ -966,6 +973,56 @@ func _draw_cell_text(cell_rect: Rect2, value: int, text_color: Color) -> void:
 		dynamic_font_size,
 		text_color
 	)
+
+
+func _draw_value_badge(cell_rect: Rect2, value: int, text_color: Color) -> void:
+	var font := value_font if value_font != null else ThemeDB.fallback_font
+	var label := str(int(pow(2.0, value)))
+	var badge_height := roundf(clampf(cell_rect.size.y * 0.32, 15.0, 23.0))
+	var badge_width := roundf(clampf(cell_rect.size.x * 0.55, 26.0, cell_rect.size.x - 6.0))
+	var badge_rect := _snap_rect(Rect2(
+		Vector2(cell_rect.get_center().x - badge_width * 0.5, cell_rect.end.y - badge_height - 4.0),
+		Vector2(badge_width, badge_height)
+	))
+	var badge_fill := Color(0.13, 0.09, 0.055, 0.78)
+	var badge_border := _rank_accent(value)
+	badge_border.a = 0.82
+	draw_style_box(_make_fill_style(badge_fill, badge_border, 1, 4), badge_rect)
+	var font_size := _fitted_value_font_size(font, label, badge_rect)
+	font_size = mini(font_size, int(badge_height * 0.72))
+	var metrics := _text_metrics(font, label, font_size)
+	var text_position := Vector2(
+		roundf(badge_rect.position.x + (badge_rect.size.x - float(metrics["width"])) * 0.5),
+		roundf(badge_rect.position.y + (badge_rect.size.y - float(metrics["height"])) * 0.5 + float(metrics["ascent"]))
+	)
+	draw_string(font, text_position, label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+
+
+func _draw_sword_icon(cell_rect: Rect2, value: int, alpha: float) -> void:
+	var texture := _sword_icon(value)
+	if texture == null:
+		return
+	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.72)
+	icon_size = maxf(16.0, icon_size)
+	var icon_rect := _snap_rect(Rect2(
+		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.06),
+		Vector2.ONE * icon_size
+	))
+	var tint := _rank_accent(value)
+	tint.a = alpha
+	draw_texture_rect(texture, icon_rect, false, tint)
+
+
+func _sword_icon(value: int) -> Texture2D:
+	if visual_set == null:
+		return null
+	return visual_set.get_sword_for_rank(value)
+
+
+func _rank_accent(value: int) -> Color:
+	if visual_set != null:
+		return visual_set.get_sword_tint_for_rank(value)
+	return Color.WHITE
 
 
 func _resolved_layout_rect() -> Rect2:

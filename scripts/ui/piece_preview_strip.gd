@@ -170,6 +170,7 @@ func _draw_card(card_rect: Rect2, piece: Resource) -> void:
 		draw_style_box(_make_piece_cell_style(piece.preview_color), rect)
 		if visual_set != null and visual_set.preview_piece_cell_overlay != null:
 			draw_texture_rect(visual_set.preview_piece_cell_overlay, rect, false)
+		_draw_sword_icon(rect, rotated_values[cell_index])
 		_draw_value(rect, rotated_values[cell_index])
 
 
@@ -206,15 +207,36 @@ func _draw_value(cell_rect: Rect2, value: int) -> void:
 	var label := str(int(pow(2.0, value)))
 	var fitted_size := mini(value_font_size, maxi(9, int(cell_rect.size.x * 0.48)))
 	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fitted_size).x
+	var badge_rect := Rect2(
+		Vector2(cell_rect.position.x + cell_rect.size.x * 0.16, cell_rect.end.y - cell_rect.size.y * 0.38),
+		Vector2(cell_rect.size.x * 0.68, maxf(10.0, cell_rect.size.y * 0.34))
+	)
+	draw_style_box(_make_value_badge_style(value), badge_rect)
 	draw_string(
 		font,
-		Vector2(cell_rect.position.x + (cell_rect.size.x - width) * 0.5, cell_rect.position.y + cell_rect.size.y * 0.62),
+		Vector2(cell_rect.position.x + (cell_rect.size.x - width) * 0.5, badge_rect.position.y + badge_rect.size.y * 0.72),
 		label,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		fitted_size,
-		Color("2f2419")
+		Color("fff7df")
 	)
+
+
+func _draw_sword_icon(cell_rect: Rect2, value: int) -> void:
+	if visual_set == null:
+		return
+	var texture := visual_set.get_sword_for_rank(value)
+	if texture == null:
+		return
+	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.72)
+	var icon_rect := Rect2(
+		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.06),
+		Vector2.ONE * icon_size
+	)
+	var tint := visual_set.get_sword_tint_for_rank(value)
+	tint.a = 0.88
+	draw_texture_rect(texture, icon_rect, false, tint)
 
 
 func _piece_bounds(cells: Array[Vector2i]) -> Rect2i:
@@ -263,6 +285,18 @@ func _make_piece_cell_style(fill_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
 	style.border_color = Color(1.0, 0.97, 0.92, 0.4)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(3)
+	return style
+
+
+func _make_value_badge_style(value: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.11, 0.075, 0.045, 0.78)
+	style.border_color = visual_set.get_sword_tint_for_rank(value) if visual_set != null else outline_color
 	style.border_width_left = 1
 	style.border_width_top = 1
 	style.border_width_right = 1

@@ -12,6 +12,7 @@ extends Resource
 @export var board_overlay: Texture2D
 @export var empty_cell_overlay: Texture2D
 @export var occupied_cell_overlay: Texture2D
+@export var sword_rank_set: MergefallSwordRankSet
 
 @export_group("Active Piece")
 @export var active_piece_cell_overlay: Texture2D
@@ -24,3 +25,15 @@ extends Resource
 @export_group("Piece Preview")
 @export var preview_card_texture: Texture2D
 @export var preview_piece_cell_overlay: Texture2D
+
+
+func get_sword_for_rank(rank: int) -> Texture2D:
+	if sword_rank_set == null:
+		return null
+	return sword_rank_set.get_sword_for_rank(rank)
+
+
+func get_sword_tint_for_rank(rank: int) -> Color:
+	if sword_rank_set == null:
+		return Color.WHITE
+	return sword_rank_set.get_tint_for_rank(rank)
