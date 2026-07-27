@@ -8,7 +8,6 @@ const RunStatisticsScript = preload("res://scripts/core/run_statistics.gd")
 const SaveDataScript = preload("res://scripts/core/save_data.gd")
 const SaveDataStoreScript = preload("res://scripts/core/save_data_store.gd")
 const GameplayAudioScript = preload("res://scripts/audio/gameplay_audio.gd")
-const MobileWebDprScript = preload("res://scripts/core/mobile_web_dpr.gd")
 
 @export var config: Resource
 
@@ -60,7 +59,9 @@ var resolution_sequence_id := 0
 var resolution_score_target := 0
 var debug_metrics_enabled := false
 var debug_process_frame_count := 0
-var mobile_web_dpr_status := {}
+var mobile_web_dpr_status := {"applied": false, "reason": "runtime_canvas_resize_disabled"}
+var _transition_trace_enabled := false
+var _transition_trace_id := 0
 
 
 func _ready() -> void:
@@ -78,7 +79,7 @@ func _ready() -> void:
 	gameplay_audio = GameplayAudioScript.new()
 	gameplay_audio.name = "GameplayAudio"
 	add_child(gameplay_audio)
-	resized.connect(_refresh_presentation)
+	resized.connect(_on_viewport_resized)
 	set_process(false)
 	_load_save_data()
 	if config == null:
@@ -93,7 +94,7 @@ func _ready() -> void:
 	board_view.config = config
 	debug_metrics_enabled = bool(config.get("render_diagnostics_enabled")) if config != null else false
 	board_view.set_diagnostics_enabled(debug_metrics_enabled)
-	_apply_mobile_web_dpr_cap()
+	_transition_trace_enabled = debug_metrics_enabled
 	start_new_game()
 
 
@@ -259,6 +260,8 @@ func _try_move_anchor(offset: Vector2i) -> void:
 func _confirm_drop() -> void:
 	if current_piece == null or game_over or board_view.is_resolution_feedback_active():
 		return
+	_transition_trace_id += 1
+	_capture_transition_checkpoint("before_piece_locks")
 	var from_cells := _current_cells()
 	var values: Array = current_piece.get_rotated_values(current_rotation)
 	var projection: Dictionary = board_state.project_settlement(from_cells, values, config.merge_fatigue_enabled)
@@ -305,16 +308,20 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 		config.score_per_rank,
 		config.merge_fatigue_enabled
 	)
+	_capture_transition_checkpoint("after_active_piece_removed")
+	_capture_resolution_events(settlement)
 	var earned_score: int = int(settlement["score"])
 	resolution_score_target = score + earned_score
 	hud.begin_turn_resolution()
 	resolution_sequence_id += 1
 	var sequence_id := resolution_sequence_id
 	board_view.play_resolution_feedback(previous_board, placement_cells, placement_values, settlement)
+	_capture_transition_checkpoint("resolution_feedback_begins")
 	_show_lock_feedback(settlement["landing_cells"])
 	board_view.resolution_feedback_finished.connect(func() -> void:
 		if sequence_id != resolution_sequence_id:
 			return
+		_capture_transition_checkpoint("resolution_feedback_ends")
 		score = resolution_score_target
 		best_score = maxi(best_score, score)
 		_save_progress()
@@ -326,7 +333,9 @@ func _lock_current_piece(placement_cells: Array[Vector2i] = _current_cells(), pl
 			_draw_next_piece()
 		if game_over:
 			hud.show_toast("BOARD JAMMED")
+		_capture_transition_checkpoint("before_returning_to_idle")
 		_refresh_presentation()
+		_capture_idle_frames()
 	, CONNECT_ONE_SHOT)
 	_refresh_presentation()
 
@@ -353,9 +362,12 @@ func _on_resolution_event_started(event: Dictionary) -> void:
 
 
 func _refresh_presentation() -> void:
-	_apply_mobile_web_dpr_cap()
-	_refresh_board_view()
 	_refresh_hud_only()
+	_refresh_board_view()
+
+
+func _on_viewport_resized() -> void:
+	_refresh_presentation()
 
 
 func _refresh_board_view() -> void:
@@ -397,6 +409,118 @@ func _refresh_hud_only() -> void:
 		"movement_disabled": current_piece == null or game_over or board_view.is_resolution_feedback_active()
 	})
 	_refresh_merge_preview()
+
+
+func _capture_resolution_events(settlement: Dictionary) -> void:
+	if not _transition_trace_enabled:
+		return
+	var gravity_index := 0
+	var merge_index := 0
+	for event in settlement.get("events", []):
+		match event.get("type", ""):
+			"gravity_step":
+				gravity_index += 1
+				_capture_transition_checkpoint("after_gravity_pass_%d" % gravity_index)
+			"merge_wave":
+				merge_index += 1
+				_capture_transition_checkpoint("after_merge_pass_%d" % merge_index)
+
+
+func _capture_idle_frames() -> void:
+	if not _transition_trace_enabled:
+		return
+	await get_tree().process_frame
+	_capture_transition_checkpoint("one_frame_after_idle")
+	await get_tree().process_frame
+	_capture_transition_checkpoint("two_frames_after_idle")
+
+
+func _capture_transition_checkpoint(label: String) -> void:
+	if not _transition_trace_enabled:
+		return
+	var board_rect := board_view.get_board_rect()
+	var drop_rect := board_view.get_drop_zone_rect(board_rect)
+	var viewport_rect := get_viewport().get_visible_rect()
+	var snapshot := {
+		"trace": _transition_trace_id,
+		"checkpoint": label,
+		"root_global_position": global_position,
+		"root_size": size,
+		"board_global_position": board_rect.position,
+		"board_size": board_rect.size,
+		"board_scale": board_view.scale,
+		"drop_zone_global_position": drop_rect.position,
+		"drop_zone_size": drop_rect.size,
+		"viewport_visible_rect": viewport_rect,
+		"canvas": _browser_canvas_report(),
+		"active_piece_exists": current_piece != null,
+		"active_piece_position": current_anchor,
+		"preview_piece_exists": not next_pieces.is_empty(),
+		"preview_piece_position": Vector2.ZERO,
+		"gameplay_state": _gameplay_state_name(),
+		"process_enabled": is_processing(),
+		"active_tween_count": _active_tween_count(),
+		"redraw_count": board_view.diagnostics_report().get("redraw_requests", 0)
+	}
+	print("[MergefallTransition] ", JSON.stringify(snapshot))
+
+
+func _browser_canvas_report() -> Dictionary:
+	if OS.get_name() != "Web" or not Engine.has_singleton("JavaScriptBridge"):
+		return {
+			"width": 0,
+			"height": 0,
+			"effective_dpr": mobile_web_dpr_status.get("effective_dpr", 1.0),
+			"inner_width": 0,
+			"inner_height": 0
+		}
+	var bridge = Engine.get_singleton("JavaScriptBridge")
+	var response = bridge.eval("""
+	(function() {
+		const canvas = document.querySelector('canvas');
+		return JSON.stringify({
+			width: canvas ? canvas.width : 0,
+			height: canvas ? canvas.height : 0,
+			effective_dpr: window.__mergefallDprCap ? window.__mergefallDprCap.cap : (window.devicePixelRatio || 1),
+			inner_width: window.innerWidth || 0,
+			inner_height: window.innerHeight || 0
+		});
+	})();
+	""", true)
+	var parsed = JSON.parse_string(str(response))
+	return parsed if parsed is Dictionary else {}
+
+
+func _gameplay_state_name() -> String:
+	if game_over:
+		return "game_over"
+	if board_view.is_resolution_feedback_active():
+		return "resolving"
+	if current_piece == null:
+		return "no_active_piece"
+	if _spawn_feedback_ratio() > 0.0:
+		return "spawning"
+	if _lock_feedback_ratio() > 0.0:
+		return "lock_feedback"
+	if _is_merge_feedback_active():
+		return "merge_feedback"
+	if _is_blocked_feedback_active():
+		return "blocked_feedback"
+	return "idle"
+
+
+func _active_tween_count() -> int:
+	var count := 0
+	if board_view.get("_motion_tween") != null and board_view.get("_motion_tween").is_valid():
+		count += 1
+	if board_view.get("_resolution_tween") != null and board_view.get("_resolution_tween").is_valid():
+		count += 1
+	if hud.get("_bar_tween") != null and hud.get("_bar_tween").is_valid():
+		count += 1
+	var preview = hud.get_preview_strip()
+	if preview != null and preview.get("_queue_tween") != null and preview.get("_queue_tween").is_valid():
+		count += 1
+	return count
 
 
 func _subtitle_text() -> String:
@@ -562,55 +686,6 @@ func _save_progress() -> void:
 func _load_save_data() -> void:
 	var data = save_store.load_data()
 	best_score = data.best_score
-
-
-func _apply_mobile_web_dpr_cap() -> void:
-	if config == null:
-		return
-	var context := _mobile_web_dpr_context()
-	mobile_web_dpr_status = MobileWebDprScript.effective_dpr(context)
-	if not bool(mobile_web_dpr_status.get("applied", false)):
-		return
-	if OS.get_name() != "Web" or not Engine.has_singleton("JavaScriptBridge"):
-		return
-	var cap: float = float(mobile_web_dpr_status.get("effective_dpr", 1.0))
-	var script := """
-	(function(cap) {
-		const canvas = document.querySelector('canvas');
-		if (!canvas) return JSON.stringify({applied:false, reason:'canvas_not_found'});
-		const rect = canvas.getBoundingClientRect();
-		if (!rect.width || !rect.height) return JSON.stringify({applied:false, reason:'empty_canvas'});
-		const width = Math.round(rect.width * cap);
-		const height = Math.round(rect.height * cap);
-		if (canvas.width !== width) canvas.width = width;
-		if (canvas.height !== height) canvas.height = height;
-		window.__mergefallDprCap = {cap, width, height, cssWidth: rect.width, cssHeight: rect.height, physicalDpr: window.devicePixelRatio || 1};
-		return JSON.stringify({applied:true, width, height, cssWidth: rect.width, cssHeight: rect.height});
-	})(%s);
-	""" % cap
-	var bridge = Engine.get_singleton("JavaScriptBridge")
-	var response = bridge.eval(script, true)
-	mobile_web_dpr_status["bridge_response"] = str(response)
-
-
-func _mobile_web_dpr_context() -> Dictionary:
-	var viewport := get_viewport_rect().size
-	var context := {
-		"platform": OS.get_name(),
-		"is_web": OS.get_name() == "Web",
-		"touch_primary": DisplayServer.is_touchscreen_available(),
-		"mobile_user_agent": OS.has_feature("mobile"),
-		"viewport": Vector2i(roundi(viewport.x), roundi(viewport.y)),
-		"device_pixel_ratio": 1.0,
-		"enabled": bool(config.get("mobile_web_dpr_cap_enabled")),
-		"cap": float(config.get("mobile_web_dpr_cap"))
-	}
-	if OS.get_name() == "Web" and Engine.has_singleton("JavaScriptBridge"):
-		var bridge = Engine.get_singleton("JavaScriptBridge")
-		context["device_pixel_ratio"] = float(bridge.eval("window.devicePixelRatio || 1", true))
-		context["touch_primary"] = bool(bridge.eval("(navigator.maxTouchPoints || 0) > 0", true))
-		context["mobile_user_agent"] = bool(bridge.eval("/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)", true))
-	return context
 
 
 func _get_configuration_warnings() -> PackedStringArray:
