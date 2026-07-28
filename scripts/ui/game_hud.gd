@@ -117,7 +117,7 @@ var _board_rect_global := Rect2()
 
 const MERGE_PREVIEW_FILL := 18.0
 const NEW_RUN_HOLD_DURATION := 1.0
-const SIDE_BUTTON_SIZE := Vector2(44, 72)
+const SIDE_BUTTON_SIZE := Vector2(48, 72)
 const SIDE_BUTTON_GAP := 6.0
 const SIDE_BUTTON_BOARD_Y_RATIO := 0.62
 
@@ -317,8 +317,13 @@ func _apply_theme() -> void:
 	_right_button.accessibility_name = "Move right"
 	_rotate_button.visible = false
 	_apply_button_style(_drop_button, true)
+	_drop_button.add_theme_font_size_override("font_size", 15)
 	_apply_button_style(_undo_button, false)
 	_apply_button_style(_restart_button, false)
+	_restart_button.add_theme_color_override("font_color", Color("2a1d10"))
+	_restart_button.add_theme_color_override("font_hover_color", Color("2a1d10"))
+	_restart_button.add_theme_color_override("font_pressed_color", Color("2a1d10"))
+	_restart_button.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.44, 1.0))
 	_apply_new_run_progress_style()
 	_preview_strip.title_font = body_font
 	_preview_strip.label_font = body_font
@@ -401,8 +406,8 @@ func _apply_stat_card(value_label: Label) -> void:
 	var caption := value_label.get_parent().get_child(0) as Label
 	var card := value_label.get_parent().get_parent() as PanelContainer
 	_apply_panel_style(card, Color(1.0, 0.95, 0.88, 0.76), 9, 5, 2, 5, 2)
-	_apply_label_style(caption, body_font, 9, muted_text_color)
-	_apply_label_style(value_label, value_font if value_font != null else body_font, 15, text_color)
+	_apply_label_style(caption, body_font, 10, Color("6d4f2e"))
+	_apply_label_style(value_label, value_font if value_font != null else body_font, 16, Color("2a1d10"))
 
 
 func _apply_board_panel_style() -> void:
@@ -412,9 +417,22 @@ func _apply_board_panel_style() -> void:
 
 
 func _apply_button_style(button: Button, emphasize: bool) -> void:
+	var is_restart := button == _restart_button
+	if is_restart:
+		var cream_fill := Color(0.96, 0.92, 0.86, 1.0)
+		var copper_border := Color("a96532")
+		var pressed_fill := Color(0.88, 0.84, 0.78, 1.0)
+		button.add_theme_font_override("font", body_font if body_font != null else ThemeDB.fallback_font)
+		button.add_theme_font_size_override("font_size", 14)
+		button.add_theme_stylebox_override("normal", _make_button_style(cream_fill, copper_border, 10))
+		button.add_theme_stylebox_override("hover", _make_button_style(cream_fill.lightened(0.04), copper_border.lightened(0.12), 10))
+		button.add_theme_stylebox_override("pressed", _make_button_style(pressed_fill, copper_border.darkened(0.15), 10))
+		button.add_theme_stylebox_override("focus", _make_button_style(cream_fill, copper_border.lightened(0.08), 10))
+		button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.85, 0.82, 0.77, 0.92), Color(0.65, 0.55, 0.45, 0.6), 10))
+		return
 	var fill := accent_color if emphasize else Color(0.96, 0.92, 0.86, 1.0)
 	var pressed := Color(fill.r * 0.9, fill.g * 0.9, fill.b * 0.9, fill.a)
-	var font_color := Color("fffaf2") if emphasize else text_color
+	var font_color := Color("fffaf2") if emphasize else Color("2a1d10")
 	button.add_theme_font_override("font", body_font if body_font != null else ThemeDB.fallback_font)
 	button.add_theme_font_size_override("font_size", 14)
 	button.add_theme_color_override("font_color", font_color)
@@ -451,10 +469,10 @@ func _apply_new_run_progress_style() -> void:
 	_restart_progress_bar.add_theme_stylebox_override("fill", fill)
 
 
-func _make_button_style(fill_color: Color, radius: int = 14) -> StyleBoxFlat:
+func _make_button_style(fill_color: Color, border_color: Color = Color(0, 0, 0, 0), radius: int = 14) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
-	style.border_color = panel_border
+	style.border_color = panel_border if border_color == Color() else border_color
 	style.border_width_left = 1
 	style.border_width_top = 1
 	style.border_width_right = 1

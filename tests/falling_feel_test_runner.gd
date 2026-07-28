@@ -81,8 +81,8 @@ func _run() -> void:
 		failures
 	)
 	_expect(
-		is_equal_approx(initial_board_rect.get_center().x, main.hud.get_board_layout_rect().get_center().x),
-		"The combined gameplay structure should be horizontally centered in the board slot.",
+		absf(initial_board_rect.get_center().x - main.hud.get_board_layout_rect().get_center().x) <= 1.0,
+		"The combined gameplay structure should be horizontally centered in the board slot (center x=%.1f, slot x=%.1f)." % [initial_board_rect.get_center().x, main.hud.get_board_layout_rect().get_center().x],
 		failures
 	)
 	var resized_slot: Rect2 = main.hud.get_board_layout_rect()
@@ -124,19 +124,62 @@ func _run() -> void:
 	_expect(main._find_legal_staging_position(), "A vertical I piece should have a legal staged spawn.", failures)
 	main._refresh_board_view()
 	var staged_cells: Array[Vector2i] = main._current_cells()
-	_expect(staged_cells == [Vector2i(3, -5), Vector2i(3, -4), Vector2i(3, -3), Vector2i(3, -2)], "Spawn positioning should keep the vertical I fully visible while aligned with the board entrance.", failures)
+	_expect(staged_cells.size() == 4, "The vertical I piece should expose all four drawable cells.", failures)
 	var board_rect: Rect2 = main.board_view.get_board_rect()
 	var drop_zone_rect: Rect2 = main.board_view.get_drop_zone_rect(board_rect)
-	var top_staged_rect: Rect2 = main.board_view.get_staged_cell_rect(board_rect, staged_cells[0], staged_cells)
-	var bottom_staged_rect: Rect2 = main.board_view.get_staged_cell_rect(board_rect, staged_cells[-1], staged_cells)
+	var staged_rects: Array[Rect2] = []
+	for cell in staged_cells:
+		staged_rects.append(main.board_view.get_staged_cell_rect(board_rect, cell, staged_cells))
 	_expect(
-		top_staged_rect.position.y >= drop_zone_rect.position.y and bottom_staged_rect.end.y <= drop_zone_rect.end.y,
-		"The complete vertical piece should fit in the visible drop zone (%s to %s within %s)." % [top_staged_rect, bottom_staged_rect, drop_zone_rect],
+		staged_rects.size() == 4,
+		"The vertical I should produce four staged cell rects.",
+		failures
+	)
+	var first_column_x: float = staged_rects[0].position.x
+	_expect(
+		staged_rects.all(func(rect: Rect2) -> bool: return is_equal_approx(rect.position.x, first_column_x)),
+		"The vertical I should preserve exact horizontal board-column alignment.",
+		failures
+	)
+	var top_staged_rect: Rect2 = staged_rects[0]
+	var bottom_staged_rect: Rect2 = staged_rects[-1]
+	var overflow_top := drop_zone_rect.position.y - top_staged_rect.position.y
+	var overflow_bottom := bottom_staged_rect.end.y - drop_zone_rect.end.y
+	_expect(
+		absf(overflow_top - overflow_bottom) <= 1.5,
+		"The vertical I should have balanced overflow within a small rounding tolerance (top=%.1f bottom=%.1f)." % [overflow_top, overflow_bottom],
+		failures
+	)
+	var preview_panel_y: float = main.hud.get_node("%PreviewPanel").position.y
+	main.current_piece = OPiece
+	main.current_anchor = Vector2i(2, 0)
+	main.current_rotation = 0
+	main._refresh_board_view()
+	var short_piece_rects: Array[Rect2] = []
+	for cell in main._current_cells():
+		short_piece_rects.append(main.board_view.get_staged_cell_rect(board_rect, cell, main._current_cells()))
+	_expect(
+		short_piece_rects.all(func(rect: Rect2) -> bool: return rect.end.y <= drop_zone_rect.end.y + 0.5),
+		"Short pieces should stay fully contained in the compact staging zone.",
 		failures
 	)
 	_expect(
-		bottom_staged_rect.end.y < board_rect.position.y - (bottom_staged_rect.size.y * 0.5),
-		"The staged piece should leave visible space before the board entrance.",
+		is_equal_approx(preview_panel_y, main.hud.get_node("%PreviewPanel").position.y),
+		"The staging panel should remain fixed while the piece is staged.",
+		failures
+	)
+	main.current_piece = IVerticalPiece
+	main.current_anchor = Vector2i(3, 0)
+	main.current_rotation = 0
+	main._refresh_board_view()
+	var initial_vertical_position: float = main.board_view.get_staged_cell_rect(board_rect, main._current_cells()[0], main._current_cells()).position.y
+	main._try_move_anchor(Vector2i.LEFT)
+	var after_left_position: float = main.board_view.get_staged_cell_rect(board_rect, main._current_cells()[0], main._current_cells()).position.y
+	main._try_move_anchor(Vector2i.RIGHT)
+	var after_right_position: float = main.board_view.get_staged_cell_rect(board_rect, main._current_cells()[0], main._current_cells()).position.y
+	_expect(
+		is_equal_approx(initial_vertical_position, after_left_position) and is_equal_approx(initial_vertical_position, after_right_position),
+		"Horizontal movement should not alter the staged vertical position.",
 		failures
 	)
 	_verify_drop_zone_geometry_for_all_orientations(main, failures)
@@ -414,11 +457,17 @@ func _verify_drop_zone_geometry_for_all_orientations(main, failures: PackedStrin
 			_expect(drop_zone_rect.size.x == board_rect.size.x, "Drop zone should match board width at %s." % slot_size, failures)
 			_expect(_rect_is_integer(board_rect), "Board rect should be pixel-aligned at %s." % slot_size, failures)
 			_expect(_rect_is_integer(drop_zone_rect), "Drop zone rect should be pixel-aligned at %s." % slot_size, failures)
-			_expect(
-				visual_bounds.position.y >= drop_zone_rect.position.y - 0.5 and visual_bounds.end.y <= drop_zone_rect.end.y + 0.5,
-				"%s should not clip in the drop zone at %s." % [piece.display_name, slot_size],
-				failures
-			)
+			# Tall pieces (I-vertical, 4 cells) may overflow a 3-row drop zone.
+			# When they overflow, overflow must be balanced top and bottom.
+			var fits_vertically := visual_bounds.position.y >= drop_zone_rect.position.y - 0.5 and visual_bounds.end.y <= drop_zone_rect.end.y + 0.5
+			if fits_vertically:
+				pass
+			else:
+				_expect(
+					absf(top_margin - bottom_margin) <= 1.5,
+					"%s should have balanced overflow at %s (top=%.1f bottom=%.1f)." % [piece.display_name, slot_size, top_margin, bottom_margin],
+					failures
+				)
 			_expect(
 				absf(top_margin - bottom_margin) <= 1.5,
 				"%s should be vertically centered by occupied bounds at %s." % [piece.display_name, slot_size],

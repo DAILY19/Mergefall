@@ -1,21 +1,25 @@
-[gd_resource type="Resource" script_class="MergefallVisualSet" load_steps=10 format=3]
+[gd_resource type="Resource" script_class="MergefallVisualSet" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/mergefall_visual_set.gd" id="1_visual_set"]
 [ext_resource type="Texture2D" path="res://assets/ui/panels/Inventory_background.png" id="2_panel"]
 [ext_resource type="Texture2D" path="res://assets/ui/panels/Inventory_Slot.png" id="3_slot"]
 [ext_resource type="Texture2D" path="res://assets/ui/panels/Inventory_select.png" id="4_select"]
-[ext_resource type="Resource" path="res://resources/swords/default_sword_rank_set.tres" id="5_swords"]
-[ext_resource type="Texture2D" path="res://assets/vfx/merge/Magic_Up.png" id="6_merge"]
+[ext_resource type="Texture2D" path="res://assets/vfx/merge/Magic_Up.png" id="5_merge"]
+[ext_resource type="Resource" path="res://resources/weapons/sword_set_a.tres" id="6_swords_a"]
+[ext_resource type="Resource" path="res://resources/weapons/axe_set_a.tres" id="7_axes_a"]
+[ext_resource type="Resource" path="res://resources/weapons/sword_set_b.tres" id="8_swords_b"]
+[ext_resource type="Resource" path="res://resources/weapons/axe_set_b.tres" id="9_axes_b"]
 
 [resource]
 script = ExtResource("1_visual_set")
 board_overlay = ExtResource("2_panel")
 empty_cell_overlay = ExtResource("3_slot")
 occupied_cell_overlay = ExtResource("3_slot")
-sword_rank_set = ExtResource("5_swords")
+sword_rank_sets = [ExtResource("6_swords_a"), ExtResource("7_axes_a"), ExtResource("8_swords_b"), ExtResource("9_axes_b")]
+sword_rank_set = ExtResource("6_swords_a")
 active_piece_cell_overlay = ExtResource("4_select")
 valid_placement_overlay = ExtResource("4_select")
 invalid_placement_overlay = ExtResource("4_select")
-merge_highlight_overlay = ExtResource("6_merge")
+merge_highlight_overlay = ExtResource("5_merge")
 preview_card_texture = ExtResource("2_panel")
 preview_piece_cell_overlay = ExtResource("3_slot")

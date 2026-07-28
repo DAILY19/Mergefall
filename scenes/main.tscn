@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://bwkhf6l65jmij" path="res://scripts/ui/board_view.gd" id="2_board"]
 [ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="Resource" path="res://resources/config/default_game_config.tres" id="4_config"]
-[ext_resource type="FontFile" path="res://assets/fonts/fantasy/neatpixels-boss.ttf" id="5_body_font"]
-[ext_resource type="FontFile" path="res://assets/fonts/fantasy/NeatpixelsMinimal.ttf" id="6_value_font"]
+[ext_resource type="FontFile" uid="uid://bv1swf1poygd5" path="res://assets/fonts/fantasy/neatpixels-boss.ttf" id="5_body_font"]
+[ext_resource type="FontFile" uid="uid://c1eaw6tq1or12" path="res://assets/fonts/fantasy/NeatpixelsMinimal.ttf" id="6_value_font"]
 [ext_resource type="Resource" path="res://resources/themes/default_mergefall_visual_set.tres" id="7_visual_set"]
 
 [node name="Main" type="Control" unique_id=475931353]
@@ -32,7 +32,7 @@ bottom_padding = 0.0
 visual_set = ExtResource("7_visual_set")
 value_font = ExtResource("6_value_font")
 frame_fill_color = Color(0.87451, 0.768627, 0.639216, 0.94)
-frame_border_color = Color(0.95, 0.68, 0.32, 0.72)
+frame_border_color = Color(0.84, 0.63, 0.3, 0.72)
 
 [node name="GameHUD" parent="." unique_id=2116614588 instance=ExtResource("3_hud")]
 unique_name_in_owner = true
@@ -46,7 +46,7 @@ section_separation = 4
 stats_separation = 6
 background_tint = Color(0.16, 0.105, 0.065, 0.96)
 panel_tint = Color(0.24, 0.155, 0.09, 0.94)
-panel_border = Color(0.76, 0.48, 0.2, 1)
-accent_color = Color(0.78, 0.38, 0.17, 1)
+panel_border = Color(0.84, 0.63, 0.3, 1)
+accent_color = Color(0.66, 0.4, 0.2, 1)
 text_color = Color(1, 0.91, 0.66, 1)
 muted_text_color = Color(0.82, 0.66, 0.43, 1)

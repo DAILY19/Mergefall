@@ -37,6 +37,11 @@ var move_count: int:
 	set(value):
 		completed_turns = value
 
+## Index into the current visual set's sword_rank_sets array.
+## Initialized to -1 so the first call to start_new_game() picks index 0
+## without advancing. Each subsequent restart advances by one.
+var _active_sword_set_index := -1
+
 var previous_board
 var previous_score := 0
 var previous_run_statistics
@@ -98,11 +103,30 @@ func _ready() -> void:
 	start_new_game()
 
 
+func _advance_sword_set() -> void:
+	var vs := _resolved_visual_set()
+	if vs == null or vs.sword_rank_sets.is_empty():
+		return
+	if _active_sword_set_index < 0:
+		# Initial startup: use first configured set without advancing.
+		_active_sword_set_index = 0
+	else:
+		_active_sword_set_index = (_active_sword_set_index + 1) % vs.sword_rank_sets.size()
+	vs.select_sword_set(_active_sword_set_index)
+
+
+func _resolved_visual_set() -> MergefallVisualSet:
+	if board_view != null and board_view.visual_set != null:
+		return board_view.visual_set
+	return null
+
+
 func start_new_game() -> void:
 	if config == null:
 		return
 	if hud != null and hud.has_method("_reset_new_run_hold_visuals"):
 		hud._reset_new_run_hold_visuals()
+	_advance_sword_set()
 	resolution_sequence_id += 1
 	board_view.cancel_resolution_feedback()
 	board_state.setup(config.board_width, config.board_height)

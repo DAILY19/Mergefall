@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="MergefallSwordRankSet" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mergefall_sword_rank_set.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_05.png" id="2_icon_1"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_27.png" id="3_icon_2"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_20.png" id="4_icon_3"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_11.png" id="5_icon_4"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_10.png" id="6_icon_5"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_13.png" id="7_icon_6"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_17.png" id="8_icon_7"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_26.png" id="9_icon_8"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_24.png" id="10_icon_9"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_14.png" id="11_icon_10"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_22.png" id="12_icon_11"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_b/Swordtember_29.png" id="13_icon_12"]
+
+[resource]
+script = ExtResource("1_script")
+rank_icons = [ExtResource("2_icon_1"), ExtResource("3_icon_2"), ExtResource("4_icon_3"), ExtResource("5_icon_4"), ExtResource("6_icon_5"), ExtResource("7_icon_6"), ExtResource("8_icon_7"), ExtResource("9_icon_8"), ExtResource("10_icon_9"), ExtResource("11_icon_10"), ExtResource("12_icon_11"), ExtResource("13_icon_12")]
+fallback_icon = ExtResource("13_icon_12")
+rank_names = ["Shard Sword", "Vanguard Blade", "Astral Sword", "Mythic Blade", "Runic Saber", "Frost Brand", "Stormbringer", "Dusk Reaver", "Void Edge", "Dawnbreaker", "Soulfang", "Starfall"]
+rank_tints = [Color(0.67, 0.78, 0.91, 1), Color(0.2, 0.56, 0.92, 1), Color(0.78, 0.52, 0.96, 1), Color(0.95, 0.24, 0.42, 1), Color(0.3, 0.85, 0.72, 1), Color(0.5, 0.7, 1.0, 1), Color(0.85, 0.5, 0.2, 1), Color(0.6, 0.3, 0.7, 1), Color(0.2, 0.4, 0.8, 1), Color(0.9, 0.7, 0.2, 1), Color(0.8, 0.2, 0.4, 1), Color(1.0, 0.85, 0.1, 1)]
+display_name = "Swords II"
+icon_scale_multiplier = 1.0
+icon_vertical_offset = 0.0
