@@ -45,6 +45,8 @@ extends Control
 		background_tint = value
 		_apply_theme()
 
+signal mute_toggled(muted: bool)
+
 @export var panel_tint := Color(1.0, 0.99, 0.96, 0.98):
 	set(value):
 		panel_tint = value
@@ -102,6 +104,7 @@ extends Control
 @onready var _drop_button: Button = %DropButton
 @onready var _undo_button: Button = %UndoButton
 @onready var _restart_button: Button = %RestartButton
+@onready var _mute_button: Button = %MuteButton
 @onready var _restart_progress_bar: ProgressBar = %RestartProgressBar
 @onready var _stats_row: HBoxContainer = %StatsRow
 @onready var _board_slot: Control = %BoardSlot
@@ -126,6 +129,7 @@ func _ready() -> void:
 	_apply_theme()
 	reset_multiplier_bar()
 	_reset_new_run_hold_visuals()
+	_setup_mute_button()
 	visibility_changed.connect(_on_visibility_changed)
 
 
@@ -315,6 +319,7 @@ func _apply_theme() -> void:
 	_right_button.text = ">"
 	_left_button.accessibility_name = "Move left"
 	_right_button.accessibility_name = "Move right"
+	_apply_mute_button_style()
 	_rotate_button.visible = false
 	_apply_button_style(_drop_button, true)
 	_drop_button.add_theme_font_size_override("font_size", 15)
@@ -400,6 +405,47 @@ func _apply_panel_style(
 	style.content_margin_right = margin_right
 	style.content_margin_bottom = margin_bottom
 	panel.add_theme_stylebox_override("panel", style)
+
+
+func _setup_mute_button() -> void:
+	_mute_button.toggled.connect(_on_mute_toggled)
+
+
+func _on_mute_toggled(button_pressed: bool) -> void:
+	mute_toggled.emit(button_pressed)
+	_mute_button.tooltip_text = "Muted" if button_pressed else "Toggle sound on/off"
+
+
+func set_mute_button_state(muted: bool) -> void:
+	_mute_button.set_pressed_no_signal(muted)
+	_mute_button.text = str("♪" if not muted else "♪̶")
+	_mute_button.tooltip_text = "Muted" if muted else "Toggle sound on/off"
+
+
+func _apply_mute_button_style() -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 0.95, 0.88, 0.76)
+	style.border_color = panel_border
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(9)
+	style.content_margin_left = 2
+	style.content_margin_top = 2
+	style.content_margin_right = 2
+	style.content_margin_bottom = 2
+	_mute_button.add_theme_stylebox_override("normal", style)
+	_mute_button.add_theme_stylebox_override("hover", style)
+	_mute_button.add_theme_stylebox_override("pressed", style)
+	_mute_button.add_theme_stylebox_override("focus", style)
+	_mute_button.add_theme_stylebox_override("disabled", style)
+	_mute_button.add_theme_font_override("font", body_font if body_font != null else ThemeDB.fallback_font)
+	_mute_button.add_theme_font_size_override("font_size", 16)
+	_mute_button.add_theme_color_override("font_color", Color("2a1d10"))
+	_mute_button.add_theme_color_override("font_hover_color", accent_color)
+	_mute_button.add_theme_color_override("font_pressed_color", accent_color.darkened(0.2))
+	_mute_button.toggle_mode = true
 
 
 func _apply_stat_card(value_label: Label) -> void:

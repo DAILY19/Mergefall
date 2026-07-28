@@ -994,17 +994,17 @@ func _draw_sword_icon(cell_rect: Rect2, value: int, alpha: float) -> void:
 	var texture := _sword_icon(value)
 	if texture == null:
 		return
-	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.78)
+	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.90)
 	icon_size = maxf(18.0, icon_size)
 	var active_rank_set = visual_set.sword_rank_set if visual_set != null else null
-	# Apply rank-set scale multiplier (spears/staffs use 0.64 for 16x16 native art)
+	# Apply rank-set scale multiplier
 	if active_rank_set != null:
 		icon_size *= active_rank_set.icon_scale_multiplier
 	var icon_rect := _snap_rect(Rect2(
-		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.12),
+		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.14),
 		Vector2.ONE * icon_size
 	))
-	# Apply rank-set vertical offset for smaller native art
+	# Apply rank-set vertical offset
 	if active_rank_set != null:
 		icon_rect.position.y += active_rank_set.icon_vertical_offset
 	var tint := _rank_accent(value)

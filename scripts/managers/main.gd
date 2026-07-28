@@ -84,6 +84,7 @@ func _ready() -> void:
 	gameplay_audio = GameplayAudioScript.new()
 	gameplay_audio.name = "GameplayAudio"
 	add_child(gameplay_audio)
+	hud.mute_toggled.connect(_on_mute_toggled)
 	resized.connect(_on_viewport_resized)
 	set_process(false)
 	_load_save_data()
@@ -179,6 +180,13 @@ func _draw_next_piece() -> void:
 		return
 	spawn_feedback_until_msec = Time.get_ticks_msec() + 240
 	_update_process_activity()
+
+
+func _on_mute_toggled(muted: bool) -> void:
+	if gameplay_audio != null:
+		gameplay_audio.set_muted(muted)
+		hud.set_mute_button_state(muted)
+		_save_progress()
 
 
 func _on_restart_pressed() -> void:
@@ -710,6 +718,10 @@ func _save_progress() -> void:
 func _load_save_data() -> void:
 	var data = save_store.load_data()
 	best_score = data.best_score
+	if data.sound_muted and gameplay_audio != null:
+		gameplay_audio.set_muted(true)
+	if hud != null and is_instance_valid(hud) and gameplay_audio != null:
+		hud.set_mute_button_state(gameplay_audio.is_muted())
 
 
 func _get_configuration_warnings() -> PackedStringArray:

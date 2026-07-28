@@ -105,6 +105,13 @@ layout_mode = 2
 text = "0"
 horizontal_alignment = 1
 
+[node name="MuteButton" type="Button" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 1
+custom_minimum_size = Vector2(32, 0)
+tooltip_text = "Toggle sound on/off"
+
 [node name="MovesCard" type="PanelContainer" parent="SafeArea/AppStack/TopPanel/TopStack/StatsRow"]
 layout_mode = 2
 size_flags_horizontal = 3
