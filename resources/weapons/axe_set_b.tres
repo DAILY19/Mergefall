@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="MergefallSwordRankSet" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mergefall_sword_rank_set.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_03.png" id="2_icon_1"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_08.png" id="3_icon_2"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_31.png" id="4_icon_3"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_15.png" id="5_icon_4"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_05.png" id="6_icon_5"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_13.png" id="7_icon_6"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_10.png" id="8_icon_7"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_04.png" id="9_icon_8"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_21.png" id="10_icon_9"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_19.png" id="11_icon_10"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_22.png" id="12_icon_11"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_b/Axetober_Day_28.png" id="13_icon_12"]
+
+[resource]
+script = ExtResource("1_script")
+rank_icons = [ExtResource("2_icon_1"), ExtResource("3_icon_2"), ExtResource("4_icon_3"), ExtResource("5_icon_4"), ExtResource("6_icon_5"), ExtResource("7_icon_6"), ExtResource("8_icon_7"), ExtResource("9_icon_8"), ExtResource("10_icon_9"), ExtResource("11_icon_10"), ExtResource("12_icon_11"), ExtResource("13_icon_12")]
+fallback_icon = ExtResource("13_icon_12")
+rank_names = ["Stone Axe", "Copper Axe", "Frost Axe", "Thunder Axe", "Ridge Axe", "Crystal Axe", "Skyfury", "Stormbreaker", "Ember Axe", "Tidecaller", "Worldbreaker", "Doomsedge"]
+rank_tints = [Color(0.38, 0.74, 0.46, 1), Color(0.48, 0.62, 0.3, 1), Color(0.24, 0.48, 0.82, 1), Color(0.96, 0.56, 0.2, 1), Color(0.66, 0.38, 0.18, 1), Color(0.55, 0.82, 0.9, 1), Color(0.3, 0.65, 0.85, 1), Color(0.85, 0.3, 0.2, 1), Color(0.9, 0.5, 0.15, 1), Color(0.28, 0.7, 0.6, 1), Color(0.75, 0.2, 0.4, 1), Color(0.95, 0.25, 0.12, 1)]
+display_name = "Axes II"
+icon_scale_multiplier = 1.0
+icon_vertical_offset = 0.0

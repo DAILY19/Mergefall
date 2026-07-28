@@ -8,6 +8,12 @@ extends Resource
 ## fallback, so transparent detail art can be replaced without losing color or
 ## readability. Placement and merge textures are overlays by design.
 
+@export_group("Sword Sets")
+## Array of complete sword-rank sets for run-to-run rotation.
+## When multiple sets are configured, each new run advances to the next set
+## sequentially. The first set is used for initial startup.
+@export var sword_rank_sets: Array[MergefallSwordRankSet] = []
+
 @export_group("Board")
 @export var board_overlay: Texture2D
 @export var empty_cell_overlay: Texture2D
@@ -25,6 +31,15 @@ extends Resource
 @export_group("Piece Preview")
 @export var preview_card_texture: Texture2D
 @export var preview_piece_cell_overlay: Texture2D
+
+
+## Sets the active sword set by index into [member sword_rank_sets].
+## Assigns the selected set to [member sword_rank_set] so all consumers
+## (BoardView, PiecePreviewStrip) continue using the same lookup path.
+## Falls back to keeping the current sword_rank_set if index is invalid.
+func select_sword_set(index: int) -> void:
+	if index >= 0 and index < sword_rank_sets.size() and sword_rank_sets[index] != null:
+		sword_rank_set = sword_rank_sets[index]
 
 
 func get_sword_for_rank(rank: int) -> Texture2D:

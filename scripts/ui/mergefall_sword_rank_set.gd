@@ -7,6 +7,19 @@ extends Resource
 @export var rank_names: Array[String] = []
 @export var rank_tints: Array[Color] = []
 
+## Display name shown in UI for this weapon class (e.g. "Swords", "Axes").
+@export var display_name: String = ""
+
+## Multiplier applied to the computed icon draw size.
+## Use < 1.0 for smaller native icons (spears/staffs at 16x16)
+## to keep their apparent size similar to 32x32 swords/axes.
+@export var icon_scale_multiplier: float = 1.0
+
+## Vertical offset in pixels added on top of the default centering offset.
+## Positive moves the icon down, negative moves it up.
+## Use for 16x16 icons that need less upward clearance from the value badge.
+@export var icon_vertical_offset: float = 0.0
+
 
 func get_sword_for_rank(rank: int) -> Texture2D:
 	var index := _rank_index(rank)

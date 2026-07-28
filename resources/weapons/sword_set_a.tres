@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="MergefallSwordRankSet" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mergefall_sword_rank_set.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_28.png" id="2_icon_1"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_16.png" id="3_icon_2"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_02.png" id="4_icon_3"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_08.png" id="5_icon_4"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_12.png" id="6_icon_5"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_15.png" id="7_icon_6"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_21.png" id="8_icon_7"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_03.png" id="9_icon_8"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_19.png" id="10_icon_9"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_09.png" id="11_icon_10"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_07.png" id="12_icon_11"]
+[ext_resource type="Texture2D" path="res://assets/weapons/swords/set_a/Swordtember_30.png" id="13_icon_12"]
+
+[resource]
+script = ExtResource("1_script")
+rank_icons = [ExtResource("2_icon_1"), ExtResource("3_icon_2"), ExtResource("4_icon_3"), ExtResource("5_icon_4"), ExtResource("6_icon_5"), ExtResource("7_icon_6"), ExtResource("8_icon_7"), ExtResource("9_icon_8"), ExtResource("10_icon_9"), ExtResource("11_icon_10"), ExtResource("12_icon_11"), ExtResource("13_icon_12")]
+fallback_icon = ExtResource("13_icon_12")
+rank_names = ["Iron Sword", "Flame Sword", "Forged Sword", "Gilded Sword", "Crystal Sword", "Rune Sword", "Skyblade", "Emberblade", "Arcane Sword", "Relic Sword", "Mythic Sword", "Crown Relic"]
+rank_tints = [Color(0.86, 0.9, 0.92, 1), Color(1.0, 0.46, 0.23, 1), Color(1.0, 0.62, 0.31, 1), Color(1.0, 0.78, 0.22, 1), Color(0.43, 0.9, 1.0, 1), Color(0.44, 1.0, 0.55, 1), Color(0.53, 0.92, 1.0, 1), Color(1.0, 0.23, 0.26, 1), Color(1.0, 0.78, 0.36, 1), Color(0.68, 0.9, 1.0, 1), Color(0.46, 0.96, 1.0, 1), Color(1.0, 0.3, 0.34, 1)]
+display_name = "Swords I"
+icon_scale_multiplier = 1.0
+icon_vertical_offset = 0.0

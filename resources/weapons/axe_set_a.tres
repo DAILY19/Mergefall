@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="MergefallSwordRankSet" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mergefall_sword_rank_set.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_02.png" id="2_icon_1"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_01.png" id="3_icon_2"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_07.png" id="4_icon_3"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_16.png" id="5_icon_4"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_09.png" id="6_icon_5"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_11.png" id="7_icon_6"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_27.png" id="8_icon_7"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_29.png" id="9_icon_8"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_12.png" id="10_icon_9"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_18.png" id="11_icon_10"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_25.png" id="12_icon_11"]
+[ext_resource type="Texture2D" path="res://assets/weapons/axes/set_a/Axetober_Day_30.png" id="13_icon_12"]
+
+[resource]
+script = ExtResource("1_script")
+rank_icons = [ExtResource("2_icon_1"), ExtResource("3_icon_2"), ExtResource("4_icon_3"), ExtResource("5_icon_4"), ExtResource("6_icon_5"), ExtResource("7_icon_6"), ExtResource("8_icon_7"), ExtResource("9_icon_8"), ExtResource("10_icon_9"), ExtResource("11_icon_10"), ExtResource("12_icon_11"), ExtResource("13_icon_12")]
+fallback_icon = ExtResource("13_icon_12")
+rank_names = ["Bronze Axe", "Iron Axe", "Steel Axe", "Feral Axe", "War Axe", "Rune Axe", "Blood Axe", "Dusk Axe", "Storm Axe", "Ritual Axe", "Titan Axe", "Worldrender"]
+rank_tints = [Color(0.92, 0.72, 0.48, 1), Color(0.84, 0.56, 0.36, 1), Color(0.64, 0.3, 0.2, 1), Color(0.67, 0.16, 0.12, 1), Color(0.76, 0.38, 0.14, 1), Color(0.42, 0.65, 0.78, 1), Color(0.82, 0.18, 0.12, 1), Color(0.45, 0.28, 0.6, 1), Color(0.22, 0.48, 0.72, 1), Color(0.7, 0.5, 0.22, 1), Color(0.56, 0.7, 0.3, 1), Color(0.92, 0.22, 0.18, 1)]
+display_name = "Axes I"
+icon_scale_multiplier = 1.0
+icon_vertical_offset = 0.0

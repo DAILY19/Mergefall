@@ -139,6 +139,7 @@ const MIN_TILE_SIZE := 24.0
 const GAP_TO_TILE_RATIO := 0.09
 const MIN_CELL_GAP := 3.0
 const MAX_CELL_GAP := 8.0
+const MAX_TETROMINO_HEIGHT := 4
 
 
 func set_board_state(board_state: BoardState) -> void:
@@ -898,10 +899,9 @@ func _staging_visual_offset(board_rect: Rect2, piece_cells: Array[Vector2i]) -> 
 
 
 func _is_drawable_staging_cell(pos: Vector2i) -> bool:
-	# Allow cells across a wider vertical range to support centering tall pieces.
-	# The staging visual offset repositions all cells so the shape is centered in
-	# the drop zone; cells logically above the zone may still render inside it.
-	return pos.x >= 0 and pos.x < config.board_width and pos.y >= -8 and pos.y < config.board_height
+	# Allow cells across a vertical range large enough for the tallest tetromino
+	# while preserving the compact 3-row staging panel and centered overflow.
+	return pos.x >= 0 and pos.x < config.board_width and pos.y >= -MAX_TETROMINO_HEIGHT and pos.y < config.board_height
 
 
 func _restart_motion_tween(

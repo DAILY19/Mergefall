@@ -130,7 +130,7 @@ layout_mode = 2
 [node name="PreviewStrip" type="Control" parent="SafeArea/AppStack/TopPanel/TopStack/PreviewPanel"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 66)
 script = ExtResource("2_preview")
 title_text = "Queue"
 
