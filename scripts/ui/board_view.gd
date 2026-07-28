@@ -118,6 +118,7 @@ var _resolution_duration := 1.0
 var _resolution_tween: Tween
 var _cell_style_cache: Dictionary = {}
 var _text_metrics_cache: Dictionary = {}
+var _style_cache: Dictionary = {}
 var debug_metrics_enabled := false
 var debug_draw_count := 0
 var debug_layout_recalculation_count := 0
@@ -143,6 +144,8 @@ const MAX_TETROMINO_HEIGHT := 4
 
 
 func set_board_state(board_state: BoardState) -> void:
+	if _board_state == board_state:
+		return
 	_board_state = board_state
 	_request_redraw()
 
@@ -154,6 +157,10 @@ func set_active_piece(
 	game_over: bool,
 	spawn_ratio: float
 ) -> void:
+	if _current_piece == piece and _current_anchor == anchor \
+			and _current_rotation == rot and _game_over == game_over \
+			and is_equal_approx(_spawn_feedback_ratio, clampf(spawn_ratio, 0.0, 1.0)):
+		return
 	_current_piece = piece
 	_current_anchor = anchor
 	_current_rotation = rot
@@ -318,6 +325,9 @@ func _draw() -> void:
 	if debug_metrics_enabled:
 		debug_draw_count += 1
 	diagnostics.increment("draw_calls")
+	# Clear the frame-scoped style cache so repeated calls within one draw
+	# pass reuse StyleBoxFlat instances without leaking across frames.
+	_style_cache.clear()
 	if config == null:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("202020"), true)
 		return
@@ -1143,6 +1153,7 @@ func _request_redraw() -> void:
 func _clear_style_caches() -> void:
 	_cell_style_cache.clear()
 	_text_metrics_cache.clear()
+	_style_cache.clear()
 
 
 func _make_preview_style(is_valid: bool) -> StyleBoxFlat:
@@ -1175,7 +1186,17 @@ func _make_merge_style(is_anchor: bool) -> StyleBoxFlat:
 	return _make_fill_style(fill_color, border_color, 5 if is_anchor else 3, cell_corner_radius)
 
 
-func _make_fill_style(fill_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
+func _with_style_cache(fill_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
+	# Frame-scoped style cache. Cleared at the top of _draw() so repeated
+	# lookups with identical parameters within one frame reuse the object.
+	var key := "%08x%08x:%d:%d" % [
+		fill_color.to_rgba32(),
+		border_color.to_rgba32(),
+		border_width,
+		radius
+	]
+	if _style_cache.has(key):
+		return _style_cache[key]
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
 	style.border_color = border_color
@@ -1184,7 +1205,12 @@ func _make_fill_style(fill_color: Color, border_color: Color, border_width: int,
 	style.border_width_right = border_width
 	style.border_width_bottom = border_width
 	style.set_corner_radius_all(radius)
+	_style_cache[key] = style
 	return style
+
+
+func _make_fill_style(fill_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
+	return _with_style_cache(fill_color, border_color, border_width, radius)
 
 
 func _tile_fill_color(value: int) -> Color:

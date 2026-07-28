@@ -87,6 +87,8 @@ func _ready() -> void:
 	hud.mute_toggled.connect(_on_mute_toggled)
 	resized.connect(_on_viewport_resized)
 	set_process(false)
+	_apply_mobile_web_fps_cap()
+	_apply_mobile_web_dpr_cap()
 	_load_save_data()
 	if config == null:
 		push_error("Main scene requires a GameConfig resource.")
@@ -707,6 +709,68 @@ func _update_process_activity() -> void:
 		or _spawn_feedback_ratio() > 0.0
 		or _lock_feedback_ratio() > 0.0
 	)
+
+
+func _apply_mobile_web_fps_cap() -> void:
+	# Mobile Web builds run at 30 FPS by default — a turn-based game does not
+	# need 60/90/120 Hz rendering. Desktop and editor are left unlimited so full
+	# input resolution and export-tool responsiveness are preserved.
+	if OS.get_name() != "Web" or Engine.is_editor_hint():
+		return
+	if not Engine.has_singleton("JavaScriptBridge"):
+		return
+	var bridge := Engine.get_singleton("JavaScriptBridge")
+	var is_mobile: Variant = bridge.eval("typeof(window.ontouchstart) !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent)", true)
+	if is_mobile:
+		Engine.max_fps = 30
+
+
+func _apply_mobile_web_dpr_cap() -> void:
+	# Apply the DPR cap to the actual Web canvas at startup. Without this the
+	# MobileWebDpr helper only calculates a value but nothing enforces it.
+	if OS.get_name() != "Web" or Engine.is_editor_hint():
+		return
+	if not Engine.has_singleton("JavaScriptBridge"):
+		return
+	if config == null:
+		return
+	if not config.mobile_web_dpr_cap_enabled:
+		return
+	var bridge := Engine.get_singleton("JavaScriptBridge")
+	var cap: float = config.mobile_web_dpr_cap
+	var result: Variant = bridge.eval("""
+	(function(cap) {
+		var dpr = window.devicePixelRatio || 1;
+		var effective = Math.min(dpr, cap);
+		var canvas = document.querySelector('canvas');
+		if (!canvas) return JSON.stringify({applied: false, reason: 'no_canvas'});
+		var width = parseInt(canvas.getAttribute('width')) || canvas.width;
+		var height = parseInt(canvas.getAttribute('height')) || canvas.height;
+		// Godot 4 canvas_resize_policy=2 (Project) sets canvas size from CSS
+		// viewport * DPR. Override the style to cap effective DPR.
+		var cssW = Math.round(width / dpr);
+		var cssH = Math.round(height / dpr);
+		canvas.style.width = cssW + 'px';
+		canvas.style.height = cssH + 'px';
+		canvas.width = Math.round(cssW * effective);
+		canvas.height = Math.round(cssH * effective);
+		return JSON.stringify({
+			applied: true,
+			effective_dpr: effective,
+			physical_dpr: dpr,
+			cap: cap,
+			css_width: cssW,
+			css_height: cssH,
+			canvas_width: Math.round(cssW * effective),
+			canvas_height: Math.round(cssH * effective)
+		});
+	})(%s)
+	""" % str(cap), true)
+	var parsed: Variant = JSON.parse_string(str(result))
+	if parsed is Dictionary:
+		mobile_web_dpr_status = parsed
+	else:
+		mobile_web_dpr_status = {"applied": false, "reason": "parse_failed"}
 
 
 func _save_progress() -> void:

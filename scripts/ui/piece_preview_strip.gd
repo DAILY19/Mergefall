@@ -71,6 +71,7 @@ extends Control
 var _pieces: Array[Resource] = []
 var _queue_handoff_ratio := 0.0
 var _queue_tween: Tween
+var _style_cache: Dictionary = {}
 
 
 func set_pieces(pieces: Array[Resource]) -> void:
@@ -100,6 +101,7 @@ func _get_minimum_size() -> Vector2:
 
 
 func _draw() -> void:
+	_style_cache.clear()
 	var font := title_font if title_font != null else ThemeDB.fallback_font
 	draw_string(font, Vector2(0, 13), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, outline_color)
 
@@ -279,40 +281,42 @@ func _best_display_rotation(piece: Resource, card_rect: Rect2) -> int:
 	return best_rotation
 
 
-func _make_card_style(has_piece: bool) -> StyleBoxFlat:
+func _with_style_cache(fill_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
+	var key := "%08x%08x:%d:%d" % [
+		fill_color.to_rgba32(),
+		border_color.to_rgba32(),
+		border_width,
+		radius
+	]
+	if _style_cache.has(key):
+		return _style_cache[key]
 	var style := StyleBoxFlat.new()
-	style.bg_color = card_color if has_piece else empty_card_color
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = outline_color
-	style.set_corner_radius_all(8)
+	style.bg_color = fill_color
+	style.border_color = border_color
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.set_corner_radius_all(radius)
+	_style_cache[key] = style
 	return style
+
+
+func _make_card_style(has_piece: bool) -> StyleBoxFlat:
+	return _with_style_cache(
+		card_color if has_piece else empty_card_color,
+		outline_color,
+		1,
+		8
+	)
 
 
 func _make_piece_cell_style(fill_color: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
-	style.border_color = Color(1.0, 0.97, 0.92, 0.4)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.set_corner_radius_all(3)
-	return style
+	return _with_style_cache(fill_color, Color(1.0, 0.97, 0.92, 0.4), 1, 3)
 
 
 func _make_value_badge_style(_value: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.11, 0.075, 0.04, 0.85)
-	style.border_color = Color(0.08, 0.055, 0.03, 0.90)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.set_corner_radius_all(3)
-	return style
+	return _with_style_cache(Color(0.11, 0.075, 0.04, 0.85), Color(0.08, 0.055, 0.03, 0.90), 1, 3)
 
 
 func _same_piece_queue(left: Array[Resource], right: Array[Resource]) -> bool:
