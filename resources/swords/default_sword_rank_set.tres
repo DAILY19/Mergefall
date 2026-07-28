@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="MergefallSwordRankSet" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mergefall_sword_rank_set.gd" id="1_rank_script"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_27.png" id="2_basic"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_01.png" id="3_flame"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_04.png" id="4_forged"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_08.png" id="5_gilded"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_09.png" id="6_crystal"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_14.png" id="7_rune"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_17.png" id="8_sky"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_21.png" id="9_ember"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_23.png" id="10_arcane"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_26.png" id="11_relic"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_28.png" id="12_mythic"]
+[ext_resource type="Texture2D" path="res://assets/swords/ranks/Swordtember_30.png" id="13_final"]
+
+[resource]
+script = ExtResource("1_rank_script")
+rank_icons = [ExtResource("2_basic"), ExtResource("3_flame"), ExtResource("4_forged"), ExtResource("5_gilded"), ExtResource("6_crystal"), ExtResource("7_rune"), ExtResource("8_sky"), ExtResource("9_ember"), ExtResource("10_arcane"), ExtResource("11_relic"), ExtResource("12_mythic"), ExtResource("13_final")]
+fallback_icon = ExtResource("13_final")
+rank_names = ["Iron Sword", "Flame Sword", "Forged Sword", "Gilded Sword", "Crystal Sword", "Rune Sword", "Skyblade", "Emberblade", "Arcane Sword", "Relic Sword", "Mythic Sword", "Crown Relic"]
+rank_tints = [Color(0.86, 0.9, 0.92, 1), Color(1, 0.46, 0.23, 1), Color(1, 0.62, 0.31, 1), Color(1, 0.78, 0.22, 1), Color(0.43, 0.9, 1, 1), Color(0.44, 1, 0.55, 1), Color(0.53, 0.92, 1, 1), Color(1, 0.23, 0.26, 1), Color(1, 0.78, 0.36, 1), Color(0.68, 0.9, 1, 1), Color(0.46, 0.96, 1, 1), Color(1, 0.3, 0.34, 1)]

@@ -12,7 +12,7 @@ extends Control
 		card_spacing = value
 		queue_redraw()
 
-@export_range(5, 24, 1) var card_padding := 6:
+@export_range(3, 20, 1) var card_padding := 4:
 	set(value):
 		card_padding = value
 		queue_redraw()
@@ -58,12 +58,12 @@ extends Control
 		show_piece_names = value
 		queue_redraw()
 
-@export_range(8, 16, 1) var label_font_size := 11:
+@export_range(8, 18, 1) var label_font_size := 12:
 	set(value):
 		label_font_size = value
 		queue_redraw()
 
-@export_range(8, 16, 1) var value_font_size := 12:
+@export_range(8, 18, 1) var value_font_size := 14:
 	set(value):
 		value_font_size = value
 		queue_redraw()
@@ -96,14 +96,14 @@ func clear_pieces() -> void:
 
 
 func _get_minimum_size() -> Vector2:
-	return Vector2(0, 58)
+	return Vector2(0, 66)
 
 
 func _draw() -> void:
 	var font := title_font if title_font != null else ThemeDB.fallback_font
-	draw_string(font, Vector2(0, 12), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, outline_color)
+	draw_string(font, Vector2(0, 13), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, outline_color)
 
-	var cards_top := 15.0
+	var cards_top := 16.0
 	var cards_height := maxf(1.0, size.y - cards_top)
 	var slot_width := (
 		size.x - float(maxi(0, visible_card_count - 1)) * card_spacing
@@ -168,8 +168,7 @@ func _draw_card(card_rect: Rect2, piece: Resource) -> void:
 			Vector2.ONE * shape_cell_size
 		)
 		draw_style_box(_make_piece_cell_style(piece.preview_color), rect)
-		if visual_set != null and visual_set.preview_piece_cell_overlay != null:
-			draw_texture_rect(visual_set.preview_piece_cell_overlay, rect, false)
+		_draw_sword_icon(rect, rotated_values[cell_index])
 		_draw_value(rect, rotated_values[cell_index])
 
 
@@ -204,17 +203,50 @@ func _draw_piece_connections(
 func _draw_value(cell_rect: Rect2, value: int) -> void:
 	var font := label_font if label_font != null else ThemeDB.fallback_font
 	var label := str(int(pow(2.0, value)))
-	var fitted_size := mini(value_font_size, maxi(9, int(cell_rect.size.x * 0.48)))
+	var badge_height := maxf(11.0, cell_rect.size.y * 0.30)
+	var badge_width := maxf(18.0, cell_rect.size.x * 0.62)
+	var badge_rect := Rect2(
+		cell_rect.position.x + (cell_rect.size.x - badge_width) * 0.5,
+		cell_rect.end.y - badge_height - 1.0,
+		badge_width,
+		badge_height
+	)
+	draw_style_box(_make_value_badge_style(value), badge_rect)
+	var fitted_size := mini(value_font_size, maxi(9, int(badge_height * 0.64)))
 	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fitted_size).x
 	draw_string(
 		font,
-		Vector2(cell_rect.position.x + (cell_rect.size.x - width) * 0.5, cell_rect.position.y + cell_rect.size.y * 0.62),
+		Vector2(cell_rect.position.x + (cell_rect.size.x - width) * 0.5, badge_rect.position.y + badge_rect.size.y * 0.72),
 		label,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		fitted_size,
-		Color("2f2419")
+		Color("faf0d7")
 	)
+
+
+func _draw_sword_icon(cell_rect: Rect2, value: int) -> void:
+	if visual_set == null:
+		return
+	var texture := visual_set.get_sword_for_rank(value)
+	if texture == null:
+		return
+	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.78)
+	var active_rank_set = visual_set.sword_rank_set if visual_set != null else null
+	# Apply rank-set scale multiplier (spears/staffs use 0.64 for 16x16 native art)
+	if active_rank_set != null:
+		icon_size *= active_rank_set.icon_scale_multiplier
+	var icon_rect := Rect2(
+		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.10),
+		Vector2.ONE * icon_size
+	)
+	# Apply rank-set vertical offset for smaller native art
+	if active_rank_set != null:
+		icon_rect.position.y += active_rank_set.icon_vertical_offset
+	var tint := visual_set.get_sword_tint_for_rank(value)
+	tint.a = 0.88
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_texture_rect(texture, icon_rect, false, tint)
 
 
 func _piece_bounds(cells: Array[Vector2i]) -> Rect2i:
@@ -263,6 +295,18 @@ func _make_piece_cell_style(fill_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
 	style.border_color = Color(1.0, 0.97, 0.92, 0.4)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(3)
+	return style
+
+
+func _make_value_badge_style(_value: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.11, 0.075, 0.04, 0.85)
+	style.border_color = Color(0.08, 0.055, 0.03, 0.90)
 	style.border_width_left = 1
 	style.border_width_top = 1
 	style.border_width_right = 1
