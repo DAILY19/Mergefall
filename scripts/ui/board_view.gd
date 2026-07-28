@@ -129,16 +129,16 @@ const RESOLUTION_MERGE_SEC := 0.44
 const RESOLUTION_GRAVITY_BASE_SEC := 0.08
 const RESOLUTION_GRAVITY_ROW_SEC := 0.045
 const RESOLUTION_GRAVITY_MAX_SEC := 0.32
-const MIN_EDGE_MARGIN := 8.0
-const MAX_EDGE_MARGIN := 18.0
-const MIN_INTER_REGION_GAP := 16.0
-const MAX_INTER_REGION_GAP := 48.0
-const DROP_ZONE_FOOTPRINT_ROWS := 4
-const DROP_ZONE_VERTICAL_PADDING_GAPS := 5.0
-const MIN_TILE_SIZE := 28.0
-const GAP_TO_TILE_RATIO := 0.115
-const MIN_CELL_GAP := 4.0
-const MAX_CELL_GAP := 10.0
+const MIN_EDGE_MARGIN := 4.0
+const MAX_EDGE_MARGIN := 14.0
+const MIN_INTER_REGION_GAP := 8.0
+const MAX_INTER_REGION_GAP := 32.0
+const DROP_ZONE_FOOTPRINT_ROWS := 3
+const DROP_ZONE_VERTICAL_PADDING_GAPS := 3.0
+const MIN_TILE_SIZE := 24.0
+const GAP_TO_TILE_RATIO := 0.09
+const MIN_CELL_GAP := 3.0
+const MAX_CELL_GAP := 8.0
 
 
 func set_board_state(board_state: BoardState) -> void:
@@ -541,25 +541,17 @@ func _draw_drop_zone_backing(drop_rect: Rect2) -> void:
 	if drop_rect.size == Vector2.ZERO:
 		return
 	diagnostics.increment("drop_zone_draws")
-	draw_style_box(_make_fill_style(drop_zone_fill_color, drop_zone_border_color, 2, mini(board_corner_radius, 14)), drop_rect)
-	_draw_art_overlay(visual_set.preview_card_texture if visual_set != null else null, drop_rect, Color(1, 1, 1, 0.42))
+	draw_style_box(_make_fill_style(drop_zone_fill_color, drop_zone_border_color, 1, mini(board_corner_radius, 14)), drop_rect)
 
 
 func _draw_board_backing(board_rect: Rect2) -> void:
 	diagnostics.increment("board_draws")
 	draw_style_box(_make_fill_style(config.board_color, Color.TRANSPARENT, 0, board_corner_radius), board_rect)
-	_draw_art_overlay(visual_set.board_overlay if visual_set != null else null, board_rect)
 
 
 func _draw_cell(cell_rect: Rect2, value: int) -> void:
 	draw_style_box(_make_cell_style(value), cell_rect)
-	var overlay: Texture2D = null
-	if visual_set != null:
-		overlay = visual_set.occupied_cell_overlay if value > 0 else visual_set.empty_cell_overlay
-	_draw_art_overlay(overlay, cell_rect)
-
 	if value > 0:
-		_draw_occupied_cell_highlight(cell_rect)
 		_draw_sword_icon(cell_rect, value, 0.86)
 		_draw_value_badge(cell_rect, value, _tile_text_color(value))
 		var text_color := _tile_text_color(value)
@@ -569,8 +561,6 @@ func _draw_cell(cell_rect: Rect2, value: int) -> void:
 
 func _draw_preview_cell(cell_rect: Rect2, value: int, is_valid: bool) -> void:
 	draw_style_box(_make_preview_style(is_valid), cell_rect)
-	if visual_set != null:
-		_draw_art_overlay(visual_set.active_piece_cell_overlay, cell_rect)
 	_draw_sword_icon(cell_rect, value, 0.78 if is_valid else 0.42)
 	var preview_text_color: Color = config.tile_text_dark if is_valid else config.tile_text_light
 	_draw_value_badge(cell_rect, value, preview_text_color)
@@ -908,7 +898,10 @@ func _staging_visual_offset(board_rect: Rect2, piece_cells: Array[Vector2i]) -> 
 
 
 func _is_drawable_staging_cell(pos: Vector2i) -> bool:
-	return pos.x >= 0 and pos.x < config.board_width and pos.y >= -drop_zone_rows and pos.y < config.board_height
+	# Allow cells across a wider vertical range to support centering tall pieces.
+	# The staging visual offset repositions all cells so the shape is centered in
+	# the drop zone; cells logically above the zone may still render inside it.
+	return pos.x >= 0 and pos.x < config.board_width and pos.y >= -8 and pos.y < config.board_height
 
 
 func _restart_motion_tween(
@@ -975,18 +968,17 @@ func _draw_cell_text(cell_rect: Rect2, value: int, text_color: Color) -> void:
 	)
 
 
-func _draw_value_badge(cell_rect: Rect2, value: int, text_color: Color) -> void:
+func _draw_value_badge(cell_rect: Rect2, value: int, _text_color: Color) -> void:
 	var font := value_font if value_font != null else ThemeDB.fallback_font
 	var label := str(int(pow(2.0, value)))
-	var badge_height := roundf(clampf(cell_rect.size.y * 0.32, 15.0, 23.0))
-	var badge_width := roundf(clampf(cell_rect.size.x * 0.55, 26.0, cell_rect.size.x - 6.0))
+	var badge_height := roundf(clampf(cell_rect.size.y * 0.28, 14.0, 22.0))
+	var badge_width := roundf(clampf(cell_rect.size.x * 0.58, 26.0, cell_rect.size.x - 4.0))
 	var badge_rect := _snap_rect(Rect2(
-		Vector2(cell_rect.get_center().x - badge_width * 0.5, cell_rect.end.y - badge_height - 4.0),
+		Vector2(cell_rect.get_center().x - badge_width * 0.5, cell_rect.end.y - badge_height - 2.0),
 		Vector2(badge_width, badge_height)
 	))
-	var badge_fill := Color(0.13, 0.09, 0.055, 0.78)
-	var badge_border := _rank_accent(value)
-	badge_border.a = 0.82
+	var badge_fill := Color(0.11, 0.075, 0.04, 0.85)
+	var badge_border := Color(0.08, 0.055, 0.03, 0.90)
 	draw_style_box(_make_fill_style(badge_fill, badge_border, 1, 4), badge_rect)
 	var font_size := _fitted_value_font_size(font, label, badge_rect)
 	font_size = mini(font_size, int(badge_height * 0.72))
@@ -995,21 +987,29 @@ func _draw_value_badge(cell_rect: Rect2, value: int, text_color: Color) -> void:
 		roundf(badge_rect.position.x + (badge_rect.size.x - float(metrics["width"])) * 0.5),
 		roundf(badge_rect.position.y + (badge_rect.size.y - float(metrics["height"])) * 0.5 + float(metrics["ascent"]))
 	)
-	draw_string(font, text_position, label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+	draw_string(font, text_position, label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("faf0d7"))
 
 
 func _draw_sword_icon(cell_rect: Rect2, value: int, alpha: float) -> void:
 	var texture := _sword_icon(value)
 	if texture == null:
 		return
-	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.72)
-	icon_size = maxf(16.0, icon_size)
+	var icon_size := floorf(minf(cell_rect.size.x, cell_rect.size.y) * 0.78)
+	icon_size = maxf(18.0, icon_size)
+	var active_rank_set = visual_set.sword_rank_set if visual_set != null else null
+	# Apply rank-set scale multiplier (spears/staffs use 0.64 for 16x16 native art)
+	if active_rank_set != null:
+		icon_size *= active_rank_set.icon_scale_multiplier
 	var icon_rect := _snap_rect(Rect2(
-		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.06),
+		cell_rect.get_center() - Vector2.ONE * icon_size * 0.5 + Vector2(0, -cell_rect.size.y * 0.12),
 		Vector2.ONE * icon_size
 	))
+	# Apply rank-set vertical offset for smaller native art
+	if active_rank_set != null:
+		icon_rect.position.y += active_rank_set.icon_vertical_offset
 	var tint := _rank_accent(value)
 	tint.a = alpha
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_texture_rect(texture, icon_rect, false, tint)
 
 
@@ -1118,17 +1118,20 @@ func _redraw_cell_value(board_rect: Rect2, cell_pos: Vector2i) -> void:
 
 
 func _make_cell_style(value: int) -> StyleBoxFlat:
-	if _cell_style_cache.has(value):
+	if value > 0 and _cell_style_cache.has(value):
 		return _cell_style_cache[value]
 	var is_filled := value > 0
 	var fill_color: Color = _tile_fill_color(value) if is_filled else config.empty_cell_color
+	if not is_filled:
+		fill_color.a = 1.0
 	var style := _make_fill_style(
 		fill_color,
-		fill_color.darkened(0.28) if is_filled else Color(0.42, 0.32, 0.22, 0.34),
-		2,
-		mini(cell_corner_radius, 8) if is_filled else cell_corner_radius
+		fill_color.darkened(0.28) if is_filled else Color(0.32, 0.24, 0.16, 0.24),
+		2 if is_filled else 1,
+		mini(cell_corner_radius, 8) if is_filled else 4
 	)
-	_cell_style_cache[value] = style
+	if is_filled:
+		_cell_style_cache[value] = style
 	return style
 
 
