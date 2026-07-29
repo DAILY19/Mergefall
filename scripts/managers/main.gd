@@ -88,7 +88,8 @@ func _ready() -> void:
 	resized.connect(_on_viewport_resized)
 	set_process(false)
 	_apply_mobile_web_fps_cap()
-	_apply_mobile_web_dpr_cap()
+	# Defer DPR canvas adjustment so the WebGL canvas exists (not ready in _ready).
+	call_deferred("_apply_mobile_web_dpr_cap")
 	_load_save_data()
 	if config == null:
 		push_error("Main scene requires a GameConfig resource.")
@@ -104,6 +105,33 @@ func _ready() -> void:
 	board_view.set_diagnostics_enabled(debug_metrics_enabled)
 	_transition_trace_enabled = debug_metrics_enabled
 	start_new_game()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		_on_page_hidden()
+	elif what == NOTIFICATION_WM_WINDOW_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+		_on_page_visible()
+
+
+func _on_page_hidden() -> void:
+	# When the browser tab or phone screen goes to sleep, pause processing.
+	# Do not alter gameplay state — just stop continuous work.
+	if OS.get_name() != "Web":
+		return
+	Engine.max_fps = 10
+	set_process(false)
+
+
+func _on_page_visible() -> void:
+	# Restore normal processing when the user returns.
+	if OS.get_name() != "Web":
+		return
+	# Re-apply the mobile FPS cap (may have been overridden).
+	_apply_mobile_web_fps_cap()
+	# Re-evaluate process activity so feedback animations resume.
+	_update_process_activity()
+	queue_redraw()
 
 
 func _advance_sword_set() -> void:
@@ -619,23 +647,19 @@ func _find_legal_staging_position() -> bool:
 			min_anchor_x,
 			max_anchor_x
 		)
-		var candidates: Array[int] = [centered_x]
-		for distance in config.board_width:
-			for direction in [-1, 1]:
-				var candidate_x: int = centered_x + distance * direction
-				if candidate_x >= min_anchor_x and candidate_x <= max_anchor_x and not candidates.has(candidate_x):
-					candidates.append(candidate_x)
-		for candidate_x in candidates:
-			var anchor := Vector2i(candidate_x, stage_y)
-			var staged_cells: Array[Vector2i] = []
-			for cell in rotated:
-				staged_cells.append(cell + anchor)
-			var values: Array = current_piece.get_rotated_values(rotation_index)
-			var projection: Dictionary = board_state.project_settlement(staged_cells, values)
-			if projection.get("legal", false) and not projection.get("has_stable_overflow", false):
-				current_rotation = rotation_index
-				current_anchor = anchor
-				return true
+		# Only try the centered spawn position. No auto-rescue scan — if the
+		# center is blocked the game ends.  The player can still move left/right
+		# before dropping; that is handled by _try_move_anchor() independently.
+		var anchor := Vector2i(centered_x, stage_y)
+		var staged_cells: Array[Vector2i] = []
+		for cell in rotated:
+			staged_cells.append(cell + anchor)
+		var values: Array = current_piece.get_rotated_values(rotation_index)
+		var projection: Dictionary = board_state.project_settlement(staged_cells, values)
+		if projection.get("legal", false) and not projection.get("has_stable_overflow", false):
+			current_rotation = rotation_index
+			current_anchor = anchor
+			return true
 	return false
 
 
