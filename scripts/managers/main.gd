@@ -67,6 +67,8 @@ var debug_process_frame_count := 0
 var mobile_web_dpr_status := {"applied": false, "reason": "runtime_canvas_resize_disabled"}
 var _transition_trace_enabled := false
 var _transition_trace_id := 0
+var _runtime_diagnostics_timer: Timer
+const RUNTIME_DIAGNOSTICS_INTERVAL_MSEC := 5000
 
 
 func _ready() -> void:
@@ -104,6 +106,7 @@ func _ready() -> void:
 	debug_metrics_enabled = bool(config.get("render_diagnostics_enabled")) if config != null else false
 	board_view.set_diagnostics_enabled(debug_metrics_enabled)
 	_transition_trace_enabled = debug_metrics_enabled
+	_setup_runtime_diagnostics_report()
 	start_new_game()
 
 
@@ -553,6 +556,38 @@ func _browser_canvas_report() -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 
+## Disabled by default. When render_diagnostics_enabled is true, a single Timer
+## emits one compact JSON report every 5 seconds and resets the counters, so
+## production builds are silent and diagnostics are easy to correlate with the
+## browser's own profiler. The Timer only exists while diagnostics are enabled.
+func _setup_runtime_diagnostics_report() -> void:
+	if not debug_metrics_enabled:
+		return
+	_runtime_diagnostics_timer = Timer.new()
+	_runtime_diagnostics_timer.name = "RuntimeDiagnosticsTimer"
+	_runtime_diagnostics_timer.wait_time = float(RUNTIME_DIAGNOSTICS_INTERVAL_MSEC) / 1000.0
+	_runtime_diagnostics_timer.autostart = true
+	_runtime_diagnostics_timer.timeout.connect(_report_runtime_diagnostics)
+	add_child(_runtime_diagnostics_timer)
+
+
+func _report_runtime_diagnostics() -> void:
+	if not debug_metrics_enabled:
+		return
+	var diag_report: Dictionary = board_view.diagnostics_report()
+	var preview = hud.get_preview_strip()
+	diag_report["fps"] = Engine.get_frames_per_second()
+	diag_report["process_enabled"] = is_processing()
+	diag_report["active_tween_count"] = _active_tween_count()
+	diag_report["preview_draw_count"] = preview.get_debug_draw_count() if preview != null and preview.has_method("get_debug_draw_count") else 0
+	diag_report["viewport_size"] = get_viewport().get_visible_rect().size
+	diag_report["canvas"] = _browser_canvas_report()
+	print("[MergefallDiagnostics] ", JSON.stringify(diag_report))
+	board_view.diagnostics.reset()
+	if preview != null and preview.has_method("reset_debug_draw_count"):
+		preview.reset_debug_draw_count()
+
+
 func _gameplay_state_name() -> String:
 	if game_over:
 		return "game_over"
@@ -634,31 +669,46 @@ func _can_piece_fit(anchor: Vector2i, rot: int) -> bool:
 func _find_legal_staging_position() -> bool:
 	if current_piece == null:
 		return false
-	var rotation_count: int = 1
-	for rotation_index in rotation_count:
-		var rotated: Array[Vector2i] = current_piece.get_rotated_cells(rotation_index)
-		var bounds: Rect2i = _piece_bounds(rotated)
-		# Stage forms above the board entrance while preserving the same landing columns.
-		var stage_y: int = -bounds.position.y - bounds.size.y - 1
-		var min_anchor_x: int = -bounds.position.x
-		var max_anchor_x: int = int(config.board_width) - bounds.position.x - bounds.size.x
-		var centered_x: int = clampi(
-			int((config.board_width - bounds.size.x) / 2) - bounds.position.x,
-			min_anchor_x,
-			max_anchor_x
-		)
-		# Only try the centered spawn position. No auto-rescue scan — if the
-		# center is blocked the game ends.  The player can still move left/right
-		# before dropping; that is handled by _try_move_anchor() independently.
-		var anchor := Vector2i(centered_x, stage_y)
+	# Rotation 0 only — rotation control is not used.
+	var rotated: Array[Vector2i] = current_piece.get_rotated_cells(0)
+	var bounds: Rect2i = _piece_bounds(rotated)
+	# Stage forms above the board entrance while preserving the same landing columns.
+	var stage_y: int = -bounds.position.y - bounds.size.y - 1
+	var min_anchor_x: int = -bounds.position.x
+	var max_anchor_x: int = int(config.board_width) - bounds.position.x - bounds.size.x
+	var centered_x: int = clampi(
+		int((config.board_width - bounds.size.x) / 2) - bounds.position.x,
+		min_anchor_x,
+		max_anchor_x
+	)
+	# Every new piece spawns at the centered/default anchor. No auto-rescue scan
+	# ever relocates the piece: the player moves left/right before dropping.
+	# The run only ends when NO horizontal anchor offers a legal staged spawn
+	# with an eventual non-overflow landing ("any legal player move" rule). The
+	# legality scan below never writes current_anchor.
+	current_rotation = 0
+	current_anchor = Vector2i(centered_x, stage_y)
+	return _any_anchor_has_legal_path(rotated, stage_y, min_anchor_x, max_anchor_x)
+
+
+## Pure game-over legality scan. Answers "does at least one legal column exist?"
+## and NEVER writes current_anchor or current_rotation, so the piece is never
+## silently relocated for the player.
+func _any_anchor_has_legal_path(
+	rotated: Array[Vector2i],
+	stage_y: int,
+	min_anchor_x: int,
+	max_anchor_x: int
+) -> bool:
+	var values: Array = current_piece.get_rotated_values(0)
+	for anchor_x in range(min_anchor_x, max_anchor_x + 1):
 		var staged_cells: Array[Vector2i] = []
 		for cell in rotated:
-			staged_cells.append(cell + anchor)
-		var values: Array = current_piece.get_rotated_values(rotation_index)
+			staged_cells.append(cell + Vector2i(anchor_x, stage_y))
+		if not board_state.can_stage(staged_cells):
+			continue
 		var projection: Dictionary = board_state.project_settlement(staged_cells, values)
 		if projection.get("legal", false) and not projection.get("has_stable_overflow", false):
-			current_rotation = rotation_index
-			current_anchor = anchor
 			return true
 	return false
 
@@ -750,46 +800,37 @@ func _apply_mobile_web_fps_cap() -> void:
 
 
 func _apply_mobile_web_dpr_cap() -> void:
-	# Apply the DPR cap to the actual Web canvas at startup. Without this the
-	# MobileWebDpr helper only calculates a value but nothing enforces it.
+	# The exported HTML shell owns the Web canvas size: with
+	# html/canvas_resize_policy="None" Godot never rewrites canvas.width/height,
+	# so the shell can cap the backing resolution at the mobile DPR cap while the
+	# browser scales the canvas to the CSS viewport. (Godot's default policy=2
+	# overwrites canvas.width with innerWidth * devicePixelRatio every frame,
+	# which silently reverted any runtime cap — measured on the deployed build.)
+	# Here we only read back the shell's applied state for diagnostics.
 	if OS.get_name() != "Web" or Engine.is_editor_hint():
 		return
 	if not Engine.has_singleton("JavaScriptBridge"):
 		return
 	if config == null:
 		return
-	if not config.mobile_web_dpr_cap_enabled:
-		return
 	var bridge := Engine.get_singleton("JavaScriptBridge")
-	var cap: float = config.mobile_web_dpr_cap
 	var result: Variant = bridge.eval("""
-	(function(cap) {
-		var dpr = window.devicePixelRatio || 1;
-		var effective = Math.min(dpr, cap);
+	(function() {
 		var canvas = document.querySelector('canvas');
-		if (!canvas) return JSON.stringify({applied: false, reason: 'no_canvas'});
-		var width = parseInt(canvas.getAttribute('width')) || canvas.width;
-		var height = parseInt(canvas.getAttribute('height')) || canvas.height;
-		// Godot 4 canvas_resize_policy=2 (Project) sets canvas size from CSS
-		// viewport * DPR. Override the style to cap effective DPR.
-		var cssW = Math.round(width / dpr);
-		var cssH = Math.round(height / dpr);
-		canvas.style.width = cssW + 'px';
-		canvas.style.height = cssH + 'px';
-		canvas.width = Math.round(cssW * effective);
-		canvas.height = Math.round(cssH * effective);
+		var state = window.__mergefallDprCap || {};
+		var dpr = window.devicePixelRatio || 1;
 		return JSON.stringify({
-			applied: true,
-			effective_dpr: effective,
-			physical_dpr: dpr,
-			cap: cap,
-			css_width: cssW,
-			css_height: cssH,
-			canvas_width: Math.round(cssW * effective),
-			canvas_height: Math.round(cssH * effective)
+			applied: !!state.applied,
+			effective_dpr: state.effective || dpr,
+			physical_dpr: state.physical || dpr,
+			cap: state.cap || null,
+			css_width: window.innerWidth || 0,
+			css_height: window.innerHeight || 0,
+			canvas_width: canvas ? canvas.width : 0,
+			canvas_height: canvas ? canvas.height : 0
 		});
-	})(%s)
-	""" % str(cap), true)
+	})();
+	""", true)
 	var parsed: Variant = JSON.parse_string(str(result))
 	if parsed is Dictionary:
 		mobile_web_dpr_status = parsed

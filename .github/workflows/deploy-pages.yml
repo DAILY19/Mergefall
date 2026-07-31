@@ -41,6 +41,20 @@ jobs:
           godot --headless --quit-after 1200 -s res://tests/falling_feel_test_runner.gd 2>&1 | tee integration-test.log
           grep -q "Gameplay integration tests passed." integration-test.log
 
+      - name: Run drop-only regression test
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless -s res://tests/regression_drop_only_test.gd 2>&1 | tee drop-only-test.log
+          grep -q "PASSED" drop-only-test.log
+
+      - name: Run board-jammed tests
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless -s res://tests/board_jammed_runner.gd 2>&1 | tee board-jammed-test.log
+          grep -q "Board-jammed integration tests passed." board-jammed-test.log
+
       - name: Export Web build
         run: |
           mkdir -p build/web

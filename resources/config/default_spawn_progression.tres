@@ -1,12 +1,10 @@
-[gd_resource type="Resource" script_class="SpawnProgression" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="SpawnProgression" format=3 uid="uid://dxd2h4rdcf675"]
 
-[ext_resource type="Script" path="res://scripts/core/spawn_progression.gd" id="1_progression"]
-[ext_resource type="Script" path="res://scripts/core/spawn_progression_phase.gd" id="2_phase"]
+[ext_resource type="Script" uid="uid://cdaecltb4uxq6" path="res://scripts/core/spawn_progression.gd" id="1_progression"]
+[ext_resource type="Script" uid="uid://cki0x6llhuxs3" path="res://scripts/core/spawn_progression_phase.gd" id="2_phase"]
 
 [sub_resource type="Resource" id="Phase_0"]
 script = ExtResource("2_phase")
-min_completed_turns = 0
-displayed_values = Array[int]([2, 4])
 weights = Array[int]([60, 40])
 
 [sub_resource type="Resource" id="Phase_16"]

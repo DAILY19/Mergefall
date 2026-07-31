@@ -72,6 +72,7 @@ var _pieces: Array[Resource] = []
 var _queue_handoff_ratio := 0.0
 var _queue_tween: Tween
 var _style_cache: Dictionary = {}
+var _debug_draw_count := 0
 
 
 func set_pieces(pieces: Array[Resource]) -> void:
@@ -100,7 +101,16 @@ func _get_minimum_size() -> Vector2:
 	return Vector2(0, 66)
 
 
+func get_debug_draw_count() -> int:
+	return _debug_draw_count
+
+
+func reset_debug_draw_count() -> void:
+	_debug_draw_count = 0
+
+
 func _draw() -> void:
+	_debug_draw_count += 1
 	_style_cache.clear()
 	var font := title_font if title_font != null else ThemeDB.fallback_font
 	draw_string(font, Vector2(0, 13), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, outline_color)
